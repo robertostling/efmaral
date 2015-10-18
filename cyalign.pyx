@@ -6,6 +6,7 @@ from operator import itemgetter
 import sys
 import time
 import random
+import math
 
 from gibbs import ibm_sample_parallel, ibm_initialize, ibm_create
 
@@ -335,7 +336,7 @@ def align(list filenames,
         raise ValueError('Source files have different number of sentences!')
 
     aligner = Aligner(tt1.voc, tt2.voc, tt1.sents, tt2.sents)
-    n_samples = int(2.0e6 / len(tt1.sents))
+    n_samples = int(10000 / math.sqrt(len(tt1.sents)))
 
     # Scale by the user-supplied length parameter.
     n_samples = int(length * n_samples)
