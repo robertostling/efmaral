@@ -1,16 +1,16 @@
 # efmaral
 Efficient Markov Chain word alignment
 
-`efmaral` is a tool for performing word alignment using a Gibbs sampling for
-a Bayesian extension of the IBM alignment models.
+`efmaral` is a tool for performing word alignment using Gibbs sampling with
+a Bayesian extension of the IBM alignment models. It is both fast and
+accurate. In addition, it can function as a plug-in replacement for
+[fast_align](https://github.com/clab/fast_align), or be used as a library from
+a Python program.
 
 The model used is described in my thesis, which you may want to consider
 citing if you use this tool:
 * [Robert Östling](http://www.robos.org/). [Bayesian Models for Multilingual Word Alignment](http://urn.kb.se/resolve?urn=urn:nbn:se:su:diva-115541). PhD thesis, Stockholm University, 2015.
 
-It uses the same input and output formats as
-[fast_align](https://github.com/clab/fast_align), for which it can be used as
-a (faster and more accurate) plug-in replacement.
 
 ## Installing
 
@@ -43,6 +43,7 @@ the English-Hindi data set from WPT-05:
 This uses the small trial set as training data, so the actual figures are
 poor.
 
+
 ## Usage
 
 The default values of `efmaral` should give acceptable results, but for a full
@@ -59,7 +60,7 @@ the `fast_align` format:
 
 Then, we can run `efmaral` on this file:
 
-   ./efmaral.py -i test.fa >test-fwd.moses 
+    ./efmaral.py -i test.fa >test-fwd.moses 
 
 If we want symmetrized alignments, also run in the reverse direction, then run
 atools (which comes with `fast_align`) to symmetrize:
@@ -70,12 +71,14 @@ atools (which comes with `fast_align`) to symmetrize:
 `efmaral` also supports reading Europarl-style inputs directly, such as the
 WPT data, by providing two filename arguments to the `-i` option:
 
-    /efmaral.py -i 3rdparty/data/test.eng 3rdparty/data/test.hin >test-fwd.moses
+    ./efmaral.py -i 3rdparty/data/test.eng 3rdparty/data/test.hin >test-fwd.moses
     ...
 
-There is a convenience script to perform both alignments + symmetrization:
+There is a convenience script to perform both alignment directions and
+symmetrization:
 
     scripts/align_symmetrize.sh 3rdparty/data/test.eng 3rdparty/data/test.hin test.moses
+
 
 ## Tips and tricks
 
@@ -94,4 +97,33 @@ The three most important options are probably:
    CPU cores since each is run in a separate thread. The default is 2, but for
    maximum speed use a value of 1. A value much higher than 4 is probably not
    very useful.
+
+
+## Implementation notes
+
+The advantage of using Gibbs sampling is that, unlike
+Expectation-Maximization (EM, used in tools such as `GIZA++`),
+adding word order and fertility models do not affect the
+computational complexity of inference.
+`fast_align` circumvents this by using a variant of the much simpler Model 2,
+but this reduces accuracy.
+
+A naively implemented Gibbs sampler can however add a large constant factor,
+which brings down performance.
+The method used here to obtain an efficient sampler is to create a pre-computed
+table indexing the (fixed) sequence of parameters accessed during each sampling
+iteration, which reduces the inner loop of the sampler to a simple dot
+product:
+
+```c
+    for (size_t i=0; i<ee_len; i++) {
+        ps_sum += counts[counts_idx[i]] * counts_sum[ee[i]];
+        ps[i] = ps_sum;
+    }
+```
+
+The above is the actual code used for the IBM1 Gibbs sampler. Adding the HMM
+word order model and a fertility model simply consists of adding two more
+factors to the product (wihch are faster than the above, since they don't need
+indirect lookups and random access in large arrays).
 
