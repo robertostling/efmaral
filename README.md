@@ -2,7 +2,7 @@
 Efficient Markov Chain word alignment
 
 `efmaral` is a tool for performing word alignment using Gibbs sampling with
-a Bayesian extension of the IBM alignment models. It is both fast and
+a Bayesian extension of the IBM alignment models. It is **both** fast and
 accurate. In addition, it can function as a plug-in replacement for
 [fast_align](https://github.com/clab/fast_align), or be used as a library from
 a Python program.
@@ -80,6 +80,61 @@ symmetrization:
     scripts/align_symmetrize.sh 3rdparty/data/test.eng 3rdparty/data/test.hin test.moses
 
 
+## Performance
+
+This is a comparison between `efmaral` and `fast_align`.
+Tests were run on a two-CPU
+Xeon E5645 2.4 GHz machine, each CPU contains 6 cores with hyperthreading.
+In all, 24 virtual cores are available.
+
+The times given are the total runtime for the `evaluate.py` script, and
+includes the (rather insignificant) time used by `evaluate.py` itself and the
+`atools` symmetrization program.
+
+Alignment Error Rate (AER) is used to indicate alignment accuracy (lower is
+better). Both programs are run with the recommended parameters.
+
+### efmaral
+
+| Languages | Sentences | AER | CPU time (s) | Real time (s) |
+| --------- | ---------:| ---:| ------------:| -------------:|
+| English-Swedish | 1,862,426 | 0.133 | 1,719 | 620 |
+| English-French | 1,130,551 | 0.085 | 763 | 279 |
+| English-Inkutitut | 340,601 | 0.235 | 122 | 46 |
+| Romanian-English | 48,681 | 0.287 | 161 | 46 |
+| English-Hindi | 3,530 | 0.483 | 98 | 10 |
+
+### fast_align
+
+| Languages | Sentences | AER | CPU time (s) | Real time (s) |
+| --------- | ---------:| ---:| ------------:| -------------:|
+| English-Swedish | 1,862,426 | 0.205 | 11,090 | 672 |
+| English-French | 1,130,551 | 0.153 | 3840 | 241 |
+| English-Inuktitut | 340,601 | 0.287 | 477 | 47 |
+| Romanian-English | 48,681 | 0.325 | 208 | 17 |
+| English-Hindi | 3,530 | 0.672 | 24 | 2 |
+
+### Comments
+
+One advantage of the EM algorithm used by `fast_align` is that it is easy to
+parallelize, unlike the collapsed Gibbs sampler `efmaral` uses. Therefore,
+`fast_align` is sometimes faster when aligning a single text on a system with
+many cores (such as this one). The *CPU time* column gives the total amount of
+time used by all CPU cores, and should be relatively constant regardless of
+the number of cores. In contrast, the *Real time* column gives the actual
+running time on this 24-core system.
+
+Note that `fast_align` uses a fixed number of iterations, whereas `efmaral`
+tries to increase the number of sampling iterations when aligning small
+corpora. Currently the number of iterations is proportional to the inverse of
+the square root of the corpus length, but there is no deep analysis behind
+this decision (nor a proper evaluation, so this may change in the future).
+
+Both tools have an unusually high CPU time/real time ratio with the very
+short English-Hindi corpus, this might be due to OpenMP overhead becoming
+noticeable.
+
+
 ## Tips and tricks
 
 The three most important options are probably:
@@ -91,7 +146,7 @@ The three most important options are probably:
    the cost of some accuracy.
  * `--null-prior`: prior probability of NULL alignment, this can to some
    extent be used to trade recall for precision, by setting a higher value
-   than the default 0.2.
+   than the default 0.2 (or vice versa, with a lower value).
  * `--samplers`: number of independent samplers to use. This reduces
    initialization bias, and is the only way for `efmaral` to utilize multiple
    CPU cores since each is run in a separate thread. The default is 2, but for
