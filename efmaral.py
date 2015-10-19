@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 from cyalign import align, print_alignments
+from gibbs import ibm_print
+
 import sys, argparse, random
 
 def main():
@@ -44,7 +46,8 @@ def main():
                 args.reverse, seed)
 
     print('Writing alignments...', file=sys.stderr)
-    print_alignments(aaa, args.reverse, sys.stdout)
+    ibm_print(aaa, args.reverse, sys.stdout.fileno())
+
 
 if __name__ == '__main__': main()
 

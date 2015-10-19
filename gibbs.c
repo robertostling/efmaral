@@ -511,6 +511,84 @@ static PyObject *py_gibbs_ibm_create(PyObject *self, PyObject *args) {
     return PyLong_FromSize_t(counts_len);
 }
 
+// Discretize the soft alignments created by a sampler.
+static PyObject *py_gibbs_ibm_discretize(PyObject *self, PyObject *args) {
+    PyObject *dists_arrays, *aaa;
+
+    if(!PyArg_ParseTuple(args, "OO", &dists_arrays, &aaa)) return NULL;
+
+    const size_t n_sents = PyTuple_Size(aaa);
+
+#pragma omp parallel for
+    for (size_t sent=0; sent<n_sents; sent++) {
+        PyArrayObject *aa_array =
+            (PyArrayObject*) PyTuple_GET_ITEM(aaa, sent);
+        PyArrayObject *dists_array =
+            (PyArrayObject*) PyTuple_GET_ITEM(dists_arrays, sent);
+        const size_t ff_len =
+            (size_t) PyArray_DIM(aa_array, 0);
+        if (ff_len == 0) continue;
+
+        const size_t ee_len =
+            ((size_t) PyArray_DIM(dists_array, 0) / ff_len) - 1;
+        if (ee_len == 0) continue;
+
+        LINK_t *aa = (LINK_t*) PyArray_GETPTR1(aa_array, 0);
+        COUNT_t *ps = (COUNT_t*) PyArray_GETPTR1(dists_array, 0);
+
+        for (size_t j=0; j<ff_len; j++) {
+            COUNT_t max_p = (COUNT_t) ps[0];
+            size_t argmax_i = 0;
+            for (size_t i=1; i<ee_len+1; i++) {
+                if (ps[i] > max_p) {
+                    max_p = ps[i];
+                    argmax_i = i;
+                }
+            }
+            aa[j] = (argmax_i == ee_len)? null_link : argmax_i;
+            ps += ee_len + 1;
+        }
+    }
+
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+
+// Print alignments to file
+static PyObject *py_gibbs_ibm_print(PyObject *self, PyObject *args) {
+    PyObject *aaa;
+    int reverse, fd;
+
+    if(!PyArg_ParseTuple(args, "Opi", &aaa, &reverse, &fd)) return NULL;
+
+    const size_t n_sents = PyTuple_Size(aaa);
+    FILE *file = fdopen(fd, "w");
+
+    for (size_t sent=0; sent<n_sents; sent++) {
+        PyArrayObject *aa_array =
+            (PyArrayObject*) PyTuple_GET_ITEM(aaa, sent);
+        const size_t aa_len = (size_t) PyArray_DIM(aa_array, 0);
+        if (aa_len > 0) {
+            LINK_t *aa = (LINK_t*) PyArray_GETPTR1(aa_array, 0);
+            int first = 1;
+            for (size_t j=0; j<aa_len; j++) {
+                if (aa[j] != null_link) {
+                    if (! first) fputc(' ', file);
+                    first = 0;
+                    if (reverse) fprintf(file, "%d-%d", (int)j, (int)aa[j]);
+                    else fprintf(file, "%d-%d", (int)aa[j], (int)j);
+                }
+            }
+        }
+        fputc('\n', file);
+    }
+
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+
 // Initialize the parameters for one individual sampler.
 static PyObject *py_gibbs_ibm_initialize(PyObject *self, PyObject *args) {
     PyObject *eee, *fff, *aaa, *counts_idx_arrays;
@@ -665,6 +743,16 @@ static PyMethodDef gibbsMethods[] = {
     },
     {"ibm_initialize", py_gibbs_ibm_initialize, METH_VARARGS,
      "Initialize parameters for a specific sampler"},
+    {"ibm_discretize", py_gibbs_ibm_discretize, METH_VARARGS,
+     "Discretize alignment distributions from a sampler\n\n"
+     "dists -- sampling distributions\n"
+     "aaa -- alignment variables to be written\n"
+    },
+    {"ibm_print", py_gibbs_ibm_print, METH_VARARGS,
+     "Print discretized alignments\n\n"
+     "aaa -- alignment variables\n"
+     "reverse -- if True, reverse the source/target indexes\n"
+     "fd -- file descriptor (integer) to write to\n"},
     {NULL, NULL, 0, NULL}
 };
 

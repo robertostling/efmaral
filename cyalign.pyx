@@ -8,7 +8,7 @@ import time
 import random
 import math
 
-from gibbs import ibm_sample_parallel, ibm_initialize, ibm_create
+from gibbs import *
 
 cimport numpy as np
 cimport cython
@@ -254,41 +254,11 @@ cdef class Aligner:
 
         print('Computing final alignments...', file=sys.stderr)
 
-        # Discretize the alignment distributions stored in sent_ps and return.
-        return tuple(
-            np.empty((0,), dtype=INDEX_dtype) \
-            if ee.shape[0] == 0 or ff.shape[0] == 0
-            else np.array(
-                [NULL_LINK if a == ee.shape[0] else a for a in
-                 ps.reshape((ff.shape[0], ee.shape[0]+1)).argmax(1)],
-                dtype=INDEX_dtype)
-            for ee, ff, ps in zip(self.eee, self.fff, sent_ps))
-
-
-cpdef print_alignments(tuple aaa, bool reverse, f):
-    """Write the given alignments to file f, using Moses format.
-
-    aaa -- alignment variables, from Aligner.align()
-    reverse -- invert source and target language order when writing alignments
-    f -- file object to write to
-    """
-
-    cdef np.ndarray[INDEX_t, ndim=1] aa
-    cdef int i, j
-    cdef FILE* cfile
-    cdef bool first
-
-    cfile = fdopen(f.fileno(), 'w')
-    for aa in aaa:
-        first = True
-        for i in range(aa.shape[0]):
-            j = aa[i]
-            if j != NULL_LINK:
-                if not first: fputc(32, cfile)
-                first = False
-                if reverse: fprintf(cfile, b'%d-%d', i, j)
-                else: fprintf(cfile, b'%d-%d', j, i)
-        fputc(10, cfile)
+        # Borrow the sampling array from the first sampler, since we won't
+        # need this anyway and it's already allocated.
+        aaa = params[0][0]
+        ibm_discretize(sent_ps, aaa)
+        return aaa
 
 
 def align(list filenames,
