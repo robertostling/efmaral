@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from cyalign import align, print_alignments
+from cyalign import align
 from gibbs import ibm_print
 
 import sys, argparse, random

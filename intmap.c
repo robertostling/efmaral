@@ -72,8 +72,8 @@ static inline size_t intmap_get_slot(const intmap *im, uint32_t k) {
     size_t i = ((size_t) hash(k) * 2) & mask;
 
     while (1) {
-        if (im->buf[i] == INTMAP_EMPTY_KEY) return i;
         if (im->buf[i] == k) return i;
+        if (im->buf[i] == INTMAP_EMPTY_KEY) return i;
         i = (i + 2) & mask;
     }
 }
@@ -97,13 +97,13 @@ static int intmap_set(intmap *im, uint32_t k, uint32_t v) {
 }
 
 static uint32_t intmap_setdefault(intmap *im, uint32_t k, uint32_t v) {
-    if (im->n*INTMAP_CAPACITY*2 > im->size)
-            if (intmap_expand(im) < 0) return -1;
     const size_t i = intmap_get_slot(im, k);
     if (im->buf[i] == INTMAP_EMPTY_KEY) {
         im->n++;
         im->buf[i] = k;
         im->buf[i+1] = v;
+        if (im->n*INTMAP_CAPACITY*2 > im->size)
+                if (intmap_expand(im) < 0) return -1;
         return v;
     }
     return im->buf[i+1];

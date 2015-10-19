@@ -134,6 +134,8 @@ cdef class Aligner:
                 for ee,ff in zip(eee,fff))
         self.lex_n_len = ibm_create(
                 eee, fff, self.lex_idx, len(e_voc), len(f_voc))
+        print('Index vector contains %d elements.' % self.lex_n_len,
+              file=sys.stderr)
 
     cdef tuple create_sampler(
             self,
@@ -182,12 +184,6 @@ cdef class Aligner:
         fert_n = None if model < 3 else np.full(
                 (FERT_ARRAY_LEN * len(self.e_voc),), 0.5, dtype=COUNT_dtype)
 
-        # Initialize the five parameters, given the (constant) sentences and
-        # vocabularies from both languages.
-        ibm_initialize(self.eee, self.fff, aaa, self.lex_idx, lex_n, lex_n_sum,
-                       jump_n, fert_n, len(self.e_voc), len(self.f_voc),
-                       lex_alpha, null_alpha, seed, True)
-
         return (aaa, lex_n, lex_n_sum, jump_n, fert_n)
 
 
@@ -221,10 +217,15 @@ cdef class Aligner:
         print('Initializing %d sampler%s...' % (
             n_samplers, '' if n_samplers == 1 else 's'),
             file=sys.stderr)
-        # Create parameters for n_samplers independent samplers.
+        # Create (empty) parameter vectors for n_samplers independent samplers.
         params = tuple(
                 self.create_sampler(highest_model, lex_alpha, null_alpha, seed)
                 for _ in range(n_samplers))
+        # Initialize the parameters in parallel.
+        ibm_initialize_parallel(
+                params, self.eee, self.fff, self.lex_idx,
+                len(self.e_voc), len(self.f_voc), lex_alpha, null_alpha,
+                seed, True)
 
         # Create probability vectors where the final alignment distributions
         # will be stored. Each vector in the tuple corresponds to one sentence
@@ -319,6 +320,7 @@ def align(list filenames,
 
     # The default scheme is to spend a third of the time going through
     # IBM1 and HMM, and the rest with the HMM+F model.
+    #scheme = ((1, (n_samples+3)//4), (2, (n_samples+3)//4), (3, n_samples))
     scheme = ((1, n_samples/4), (2, n_samples/4), (3, n_samples))
 
     return aligner.align(seed, n_samplers, null_prior, lex_alpha, null_alpha,

@@ -713,6 +713,162 @@ static PyObject *py_gibbs_ibm_initialize(PyObject *self, PyObject *args) {
 }
 
 
+// Initialize the parameters for multiple individual samplers.
+static PyObject *py_gibbs_ibm_initialize_parallel(
+        PyObject *self, PyObject *args) {
+
+    PyObject *eee, *fff, *counts_idx_arrays, *params;
+    PyArrayObject *seed_array;
+    unsigned long e_voc_size, f_voc_size;
+    double lexical_alpha, null_alpha;
+    int randomize;
+
+    if(!PyArg_ParseTuple(args, "OOOOkkddOp",
+                         &params, &eee, &fff, &counts_idx_arrays,
+                         &e_voc_size, &f_voc_size,
+                         &lexical_alpha, &null_alpha,
+                         &seed_array, &randomize))
+        return NULL;
+
+    const size_t n_sents = PyTuple_Size(eee);
+    const size_t n_samplers = PyTuple_Size(params);
+
+    PRNG_SEED_t *seed = (PRNG_SEED_t*) PyArray_GETPTR1(seed_array, 0);
+    PRNG_SEED_t local_seeds[n_samplers];
+    for (size_t sampler=0; sampler<n_samplers; sampler++)
+        local_seeds[sampler] = prng_next(*seed + 1 + sampler);
+    *seed = prng_next(*seed);
+
+#pragma omp parallel for
+    for (size_t sampler=0; sampler<n_samplers; sampler++) {
+        PRNG_SEED_t seed_cache = local_seeds[sampler];
+
+        PyObject *sampler_params = PyTuple_GET_ITEM(params, sampler);
+
+        PyObject *aaa = PyTuple_GET_ITEM(sampler_params, 0);
+        PyArrayObject *counts_array =
+            (PyArrayObject*) PyTuple_GET_ITEM(sampler_params, 1);
+        PyArrayObject *counts_sum_array =
+            (PyArrayObject*) PyTuple_GET_ITEM(sampler_params, 2);
+        PyArrayObject *jump_counts_array =
+            (PyArrayObject*) PyTuple_GET_ITEM(sampler_params, 3);
+        PyArrayObject *fert_counts_array =
+            (PyArrayObject*) PyTuple_GET_ITEM(sampler_params, 4);
+
+        COUNT_t *counts = (COUNT_t*) PyArray_GETPTR1(counts_array, 0);
+        COUNT_t *counts_sum = (COUNT_t*) PyArray_GETPTR1(counts_sum_array, 0);
+        COUNT_t *jump_counts = ((PyObject*)jump_counts_array == Py_None)
+            ? NULL
+            : PyArray_GETPTR1(jump_counts_array, 0);
+        COUNT_t *fert_counts = ((PyObject*)fert_counts_array == Py_None)
+            ? NULL
+            : PyArray_GETPTR1(fert_counts_array, 0);
+
+        const size_t counts_size = PyArray_DIM(counts_array, 0);
+
+        for (size_t i=0; i<f_voc_size; i++)
+            counts[i] = null_alpha;
+        for (size_t i=f_voc_size; i<counts_size; i++)
+            counts[i] = lexical_alpha;
+
+        counts_sum[0] = null_alpha*(COUNT_t)f_voc_size;
+        for (size_t i=1; i<e_voc_size; i++)
+            counts_sum[i] = lexical_alpha*(COUNT_t)f_voc_size;
+
+        for (size_t sent=0; sent<n_sents; sent++) {
+            PyArrayObject *ee_array =
+                (PyArrayObject*) PyTuple_GET_ITEM(eee, sent);
+            PyArrayObject *ff_array =
+                (PyArrayObject*) PyTuple_GET_ITEM(fff, sent);
+            const size_t ee_len = (size_t) PyArray_DIM(ee_array, 0);
+            const size_t ff_len = (size_t) PyArray_DIM(ff_array, 0);
+
+            if (ee_len == 0 || ff_len == 0) continue;
+
+            PyArrayObject *aa_array =
+                (PyArrayObject*) PyTuple_GET_ITEM(aaa, sent);
+            PyArrayObject *counts_idx_array =
+                (PyArrayObject*) PyTuple_GET_ITEM(counts_idx_arrays, sent);
+
+            const TOKEN_t *ee = (const TOKEN_t*) PyArray_GETPTR1(ee_array, 0);
+            const TOKEN_t *ff = (const TOKEN_t*) PyArray_GETPTR1(ff_array, 0);
+            LINK_t *aa = (LINK_t*) PyArray_GETPTR1(aa_array, 0);
+            const INDEX_t *counts_idx = (const INDEX_t*) PyArray_GETPTR1(
+                counts_idx_array, 0);
+
+            int aa_jm1 = -1;
+            if (randomize) {
+                for (size_t j=0; j<ff_len; j++) {
+                    if (prng_next_count(&seed_cache) < 0.1) {
+                        aa[j] = null_link;
+                        counts[ff[j]] += (COUNT_t)1.0;
+                        counts_sum[0] += (COUNT_t)1.0;
+                    } else {
+                        const size_t i = prng_next_int(&seed_cache, ee_len);
+                        aa[j] = i;
+                        counts[counts_idx[i]] += (COUNT_t)1.0;
+                        counts_sum[ee[i]] += (COUNT_t)1.0;
+                        if (jump_counts != NULL) {
+                            const size_t jump =
+                                get_jump_index(aa_jm1, i, ee_len);
+                            aa_jm1 = i;
+                            jump_counts[jump] += (COUNT_t)1.0;
+                            jump_counts[JUMP_SUM] += (COUNT_t)1.0;
+                        }
+                    }
+                    counts_idx += ee_len;
+                }
+            } else {
+                for (size_t j=0; j<ff_len; j++) {
+                    if (aa[j] == null_link) {
+                        counts[ff[j]] += (COUNT_t)1.0;
+                        counts_sum[0] += (COUNT_t)1.0;
+                    } else {
+                        const size_t i = (size_t)aa[j];
+                        counts[counts_idx[i]] += (COUNT_t)1.0;
+                        counts_sum[ee[i]] += (COUNT_t)1.0;
+                        if (jump_counts != NULL) {
+                            const size_t jump =
+                                get_jump_index(aa_jm1, i, ee_len);
+                            aa_jm1 = i;
+                            jump_counts[jump] += (COUNT_t)1.0;
+                            jump_counts[JUMP_SUM] += (COUNT_t)1.0;
+                        }
+                    }
+                    counts_idx += ee_len;
+                }
+            }
+            if (fert_counts != NULL) {
+                int fert[ee_len];
+                for (size_t i=0; i<ee_len; i++)
+                    fert[i] = 0;
+                for (size_t j=0; j<ff_len; j++)
+                    if (aa[j] != null_link) fert[aa[j]]++;
+                for (size_t i=0; i<ee_len; i++)
+                    fert_counts[get_fert_index(ee[i], fert[i])] +=
+                        (COUNT_t)1.0;
+            }
+            if (jump_counts != NULL && aa_jm1 >= 0) {
+                jump_counts[get_jump_index(aa_jm1, ee_len, ee_len)] +=
+                    (COUNT_t)1.0;
+                jump_counts[JUMP_SUM] += (COUNT_t)1.0;
+            }
+        }
+
+#if CACHE_RECIPROCAL
+        for (size_t e=0; e<e_voc_size; e++)
+            counts_sum[e] = (COUNT_t)1.0 / counts_sum[e];
+#endif
+
+        local_seeds[sampler] = seed_cache;
+    }
+
+
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+
 
 static PyMethodDef gibbsMethods[] = {
     {"ibm_sample_parallel", py_gibbs_ibm_sample_parallel, METH_VARARGS,
@@ -743,6 +899,19 @@ static PyMethodDef gibbsMethods[] = {
     },
     {"ibm_initialize", py_gibbs_ibm_initialize, METH_VARARGS,
      "Initialize parameters for a specific sampler"},
+    {"ibm_initialize_parallel", py_gibbs_ibm_initialize_parallel, METH_VARARGS,
+     "Initialize parameters for a number of samplers in parallel\n\n"
+     "params -- tuple of 5-tuples containing the parameters\n"
+     "eee -- tuple, source language sentences\n"
+     "fff -- tuple, target language sentences\n"
+     "counts_idx -- indexes into lexical counts array, to be initialized\n"
+     "e_voc_size -- int, source of source vocabulary\n"
+     "f_voc_size -- int, source of target vocabulary\n"
+     "lexical_alpha -- Dirichlet parameter for lexical distributions\n"
+     "null_alpha -- Dirichlet parameter for NULL lexical distribution\n"
+     "seed -- PRNG state\n"
+     "randomize -- if True, the alignments will be randomized\n"
+    },
     {"ibm_discretize", py_gibbs_ibm_discretize, METH_VARARGS,
      "Discretize alignment distributions from a sampler\n\n"
      "dists -- sampling distributions\n"
