@@ -303,6 +303,14 @@ def align(list filenames,
     if reverse:
         tt1, tt2 = tt2, tt1
 
+    index_size = sum(sent1.shape[0] * sent2.shape[0]
+                     for sent1, sent2 in zip(tt1.sents, tt2.sents))
+    if INDEX_dtype == np.uint32 and index_size >= 2**32:
+        raise ValueError(
+                'INDEX_t is 32-bit but index table size is %d!' % index_size)
+    print('Index table will require %d elements.' % index_size,
+          file=sys.stderr)
+
     if len(tt1.sents) != len(tt2.sents):
         raise ValueError('Source files have different number of sentences!')
 
