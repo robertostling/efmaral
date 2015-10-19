@@ -46,6 +46,11 @@ poor.
 
 ## Usage
 
+For the lazy, there is a convenience script to align in both directions and
+perform symmetrization. You can use it with the example data in the repo:
+
+    scripts/align_symmetrize.sh 3rdparty/data/test.eng 3rdparty/data/test.hin test.moses
+
 The default values of `efmaral` should give acceptable results, but for a full
 list of options, run:
 
@@ -72,12 +77,6 @@ atools (which comes with `fast_align`) to symmetrize:
 WPT data, by providing two filename arguments to the `-i` option:
 
     ./efmaral.py -i 3rdparty/data/test.eng 3rdparty/data/test.hin >test-fwd.moses
-    ...
-
-There is a convenience script to perform both alignment directions and
-symmetrization:
-
-    scripts/align_symmetrize.sh 3rdparty/data/test.eng 3rdparty/data/test.hin test.moses
 
 
 ## Performance
@@ -109,12 +108,10 @@ better). Both programs are run with the recommended parameters.
 | Languages | Sentences | AER | CPU time (s) | Real time (s) |
 | --------- | ---------:| ---:| ------------:| -------------:|
 | English-Swedish | 1,862,426 | 0.205 | 11,090 | 672 |
-| English-French | 1,130,551 | 0.153 | 3840 | 241 |
+| English-French | 1,130,551 | 0.153 | 3,840 | 241 |
 | English-Inuktitut | 340,601 | 0.287 | 477 | 47 |
 | Romanian-English | 48,681 | 0.325 | 208 | 17 |
 | English-Hindi | 3,530 | 0.672 | 24 | 2 |
-
-### Comments
 
 One advantage of the EM algorithm used by `fast_align` is that it is easy to
 parallelize, unlike the collapsed Gibbs sampler `efmaral` uses. Therefore,
@@ -152,6 +149,25 @@ The three most important options are probably:
    CPU cores since each is run in a separate thread. The default is 2, but for
    maximum speed use a value of 1. A value much higher than 4 is probably not
    very useful.
+
+
+## Aligning very large corpora
+
+There are two things to consider: memory usage, and the index table pointer
+size.
+
+The amount of memory used is proportional to the sum of the products of the
+lengths of each sentence pair, i.e. `\sum_{e,f} (|e| \times |f|)`.
+In practice, this amounts to about 20 GB for aligning a large Europarl bitext
+(such as the 1.86 million sentence English-Swedish corpus mentioned above).
+If you align both directions in parallel, you need 40 GB.
+
+If the counter index table (whose length is the sum above) can not fit in an
+unsigned 32-bit integer,
+it is necessary to change `INDEX_t` in `gibbc.c` as well as `cyalign.pyx`.
+This will however further increase memory usage (roughly by a factor of 1.5),
+so the code uses 32-bit integers by default.
+An error will be printed if this happens.
 
 
 ## Implementation notes
