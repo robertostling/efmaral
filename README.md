@@ -93,6 +93,11 @@ includes the (rather insignificant) time used by `evaluate.py` itself and the
 Alignment Error Rate (AER) is used to indicate alignment accuracy (lower is
 better). Both programs are run with the recommended parameters.
 
+**Note:** the timings should be taken with a grain of salt for both systems,
+since they depend critically on the number of iterations used, which could
+easily be adjusted depending on the performance/accuracy ratio desired. Also
+note that benchmarking on a 24-core system gives `fast_align` an advantage.
+
 ### efmaral
 
 | Languages | Sentences | AER | CPU time (s) | Real time (s) |
