@@ -169,7 +169,7 @@ If you align both directions in parallel, you need 40 GB.
 
 If the counter index table (whose length is the sum above) can not fit in an
 unsigned 32-bit integer,
-it is necessary to change `INDEX_t` in `gibbc.c` as well as `cyalign.pyx`.
+it is necessary to change `INDEX_t` in `gibbs.c` as well as `cyalign.pyx`.
 This will however further increase memory usage (roughly by a factor of 1.5),
 so the code uses 32-bit integers by default.
 An error will be printed if this happens.
