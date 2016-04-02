@@ -20,8 +20,8 @@ from libc.stdio cimport fprintf, fdopen, fputc, FILE
 ctypedef np.float32_t COUNT_t
 COUNT_dtype = np.float32
 
-ctypedef np.uint32_t INDEX_t
-INDEX_dtype = np.uint32
+ctypedef np.uint64_t INDEX_t
+INDEX_dtype = np.uint64
 
 ctypedef np.uint32_t TOKEN_t
 TOKEN_dtype = np.uint32
@@ -130,7 +130,7 @@ cdef class Aligner:
         print('Initializing aligner (%d sentences)...' % len(eee),
               file=sys.stderr)
         self.lex_idx = tuple(
-                np.empty((ff.shape[0]*ee.shape[0],), dtype=COUNT_dtype)
+                np.empty((ff.shape[0]*ee.shape[0],), dtype=INDEX_dtype)
                 for ee,ff in zip(eee,fff))
         self.lex_n_len = ibm_create(
                 eee, fff, self.lex_idx, len(e_voc), len(f_voc))

@@ -19,7 +19,7 @@ installed:
 
  * Python 3 (tested with version 3.4)
  * gcc (tested with version 4.9) and GNU Make
- * Cython (tested with version 0.21)
+ * Cython (tested with version 0.21, does not work with 0.20 or earlier)
  * NumPY (tested with version 1.8.2)
 
 These can be installed on Debian 8 (jessie) using the following command as root:
@@ -173,6 +173,10 @@ it is necessary to change `INDEX_t` in `gibbc.c` as well as `cyalign.pyx`.
 This will however further increase memory usage (roughly by a factor of 1.5),
 so the code uses 32-bit integers by default.
 An error will be printed if this happens.
+
+**Update**: 64-bit index pointers are now the default, but you may want to
+switch back if you're going to align fairly small corpora on a system with
+limited memory.
 
 
 ## Implementation notes

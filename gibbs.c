@@ -28,7 +28,7 @@ typedef uint16_t LINK_t;        // type of alignment variables
 typedef uint32_t TOKEN_t;       // type of tokens
 typedef float COUNT_t;          // type of almost all floating-point values
 #define NPY_COUNT NPY_FLOAT32   // must be the same as above!
-typedef uint32_t INDEX_t;       // type of indexes for the lexical counts
+typedef uint64_t INDEX_t;       // type of indexes for the lexical counts
                                 // vector, may need to be increased for some
                                 // huge corpora
 typedef uint64_t PRNG_SEED_t;   // PRNG state
@@ -430,7 +430,7 @@ static PyObject *py_gibbs_ibm_create(PyObject *self, PyObject *args) {
                          &e_voc_size, &f_voc_size))
         return NULL;
 
-    // This maps pairs of (e,f), coded as (uint32_t)(e*f_voc_size + f),
+    // This maps pairs of (e,f), coded as (e << 32) + f
     // to indexes in the lexical counts array (which each independent sampler
     // has one).
     intmap counts_idx_map;
@@ -490,7 +490,8 @@ static PyObject *py_gibbs_ibm_create(PyObject *self, PyObject *args) {
                 const TOKEN_t e = ee[i];
                 // idx is a unique integer for each pair of source/target
                 // token
-                uint32_t idx = (uint32_t)f*(uint32_t)e_voc_size + (uint32_t)e;
+                // uint32_t idx = (uint32_t)f*(uint32_t)e_voc_size + (uint32_t)e;
+                uint64_t idx = ((uint64_t)f << 32) + (uint64_t)e;
                 // ptr is the index within the lexical counts vector of idx,
                 // this is found by hash table lookup
                 // If it is not already in the hash table, reserve a new index
