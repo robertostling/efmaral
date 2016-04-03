@@ -1,4 +1,22 @@
 #include <Python.h>
+
+// Cython seems to generate code using the obsolete PyCObject API, so I had to
+// add this small translation layer in order to get it to work with a
+// particular version of Python 3.4.1. The Debian version of Python 3.4.2
+// doesn't seem to require this.
+
+int PyCObject_Check(PyObject *p) {
+    return PyCapsule_CheckExact(p);
+}
+
+PyObject* PyCObject_FromVoidPtr(void* cobj, void (*destr)(void *)) {
+    return PyCapsule_New(cobj, NULL, destr);
+}
+
+void* PyCObject_AsVoidPtr(PyObject* self) {
+    return PyCapsule_GetPointer(self, NULL);
+}
+
 #include <numpy/ndarrayobject.h>
 #include <numpy/npy_common.h>
 #include <stdint.h>

@@ -7,7 +7,11 @@ gibbsmodule = Extension(
     'gibbs',
     sources=['gibbs.c'],
     libraries=[],
-    extra_compile_args=['-std=c99', '-Wall', '-fopenmp'],
+    # NOTE: the -Wno.. arguments are to compensate for a bug in the build
+    # system
+    extra_compile_args=['-std=c99', '-Wall', '-fopenmp',
+                        '-Wno-error=declaration-after-statement',
+                        '-Wno-declaration-after-statement'],
     extra_link_args=['-lgomp'])
 
 setup(

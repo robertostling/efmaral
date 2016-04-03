@@ -76,13 +76,13 @@ cdef class TokenizedText:
         cdef str s
         cdef list sent
         indexer = { '': 0 } # NULL word has index 0
-        self.sents = tuple(
+        self.sents = tuple([
             np.array([indexer.setdefault(s, len(indexer)) for s in sent],
                      dtype=TOKEN_dtype)
-            for sent in sents)
+            for sent in sents])
         self.indexer = indexer
         self.voc = tuple(
-            s for s,_ in sorted(indexer.items(), key=itemgetter(1)))
+            [s for s,_ in sorted(indexer.items(), key=itemgetter(1))])
 
 
 cpdef read_fastalign(filename):
@@ -169,7 +169,7 @@ cdef class Aligner:
         lex_n_sum = np.empty((len(self.e_voc),), dtype=COUNT_dtype)
 
         # Alignment variables, will be initialized by ibm_initialize()
-        aaa = tuple(np.empty_like(ff, dtype=LINK_dtype) for ff in self.fff)
+        aaa = tuple([np.empty_like(ff, dtype=LINK_dtype) for ff in self.fff])
 
         # Jump length counts, the priors are initialized here and the counts
         # by ibm_initialize(). The last value of the vector contains the sum
@@ -212,15 +212,15 @@ cdef class Aligner:
 
         # Find out what the highest model used is, we need to make sure that
         # all the parameters needed for this model are initialized.
-        highest_model = max(model for model,n_epochs in scheme)
+        highest_model = max([model for model,n_epochs in scheme])
 
         print('Initializing %d sampler%s...' % (
             n_samplers, '' if n_samplers == 1 else 's'),
             file=sys.stderr)
         # Create (empty) parameter vectors for n_samplers independent samplers.
-        params = tuple(
+        params = tuple([
                 self.create_sampler(highest_model, lex_alpha, null_alpha, seed)
-                for _ in range(n_samplers))
+                for _ in range(n_samplers)])
         # Initialize the parameters in parallel.
         ibm_initialize_parallel(
                 params, self.eee, self.fff, self.lex_idx,
@@ -231,9 +231,9 @@ cdef class Aligner:
         # will be stored. Each vector in the tuple corresponds to one sentence
         # pair, and consists of a flattened (E+1)*F array, for source and
         # target sentence lengths E and F.
-        sent_ps = tuple(np.zeros(((ee.shape[0]+1)*ff.shape[0],),
-                                 dtype=COUNT_dtype)
-                        for ee,ff in zip(self.eee, self.fff))
+        sent_ps = tuple([np.zeros(((ee.shape[0]+1)*ff.shape[0],),
+                                  dtype=COUNT_dtype)
+                         for ee,ff in zip(self.eee, self.fff)])
 
         # This is the main loop, going through each step of the training
         # scheme and calling ibm_sample_parallel() to do the actual job.

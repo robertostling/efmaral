@@ -19,7 +19,7 @@ installed:
 
  * Python 3 (tested with version 3.4)
  * gcc (tested with version 4.9) and GNU Make
- * Cython (tested with version 0.21, does not work with 0.20 or earlier)
+ * Cython (tested with version 0.21 and 0.20)
  * NumPY (tested with version 1.8.2)
 
 These can be installed on Debian 8 (jessie) using the following command as root:
