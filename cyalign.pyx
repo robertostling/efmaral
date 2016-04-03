@@ -20,8 +20,8 @@ from libc.stdio cimport fprintf, fdopen, fputc, FILE
 ctypedef np.float32_t COUNT_t
 COUNT_dtype = np.float32
 
-ctypedef np.uint64_t INDEX_t
-INDEX_dtype = np.uint64
+ctypedef np.uint32_t INDEX_t
+INDEX_dtype = np.uint32
 
 ctypedef np.uint32_t TOKEN_t
 TOKEN_dtype = np.uint32
@@ -136,6 +136,11 @@ cdef class Aligner:
                 eee, fff, self.lex_idx, len(e_voc), len(f_voc))
         print('Index vector contains %d elements.' % self.lex_n_len,
               file=sys.stderr)
+        if INDEX_dtype == np.uint32 and self.lex_n_len >= 2**32:
+            raise ValueError(
+                    (('INDEX_t is 32-bit but index table size is %d! ' +
+                      'See the README for instructions') %
+                     self.lex_n_len))
 
     cdef tuple create_sampler(
             self,
@@ -305,9 +310,6 @@ def align(list filenames,
 
     index_size = sum(sent1.shape[0] * sent2.shape[0]
                      for sent1, sent2 in zip(tt1.sents, tt2.sents))
-    if INDEX_dtype == np.uint32 and index_size >= 2**32:
-        raise ValueError(
-                'INDEX_t is 32-bit but index table size is %d!' % index_size)
     print('Index table will require %d elements.' % index_size,
           file=sys.stderr)
 

@@ -10,7 +10,7 @@ int PyCObject_Check(PyObject *p) {
 }
 
 PyObject* PyCObject_FromVoidPtr(void* cobj, void (*destr)(void *)) {
-    return PyCapsule_New(cobj, NULL, destr);
+    return PyCapsule_New(cobj, NULL, (PyCapsule_Destructor)destr);
 }
 
 void* PyCObject_AsVoidPtr(PyObject* self) {
@@ -46,7 +46,7 @@ typedef uint16_t LINK_t;        // type of alignment variables
 typedef uint32_t TOKEN_t;       // type of tokens
 typedef float COUNT_t;          // type of almost all floating-point values
 #define NPY_COUNT NPY_FLOAT32   // must be the same as above!
-typedef uint64_t INDEX_t;       // type of indexes for the lexical counts
+typedef uint32_t INDEX_t;       // type of indexes for the lexical counts
                                 // vector, may need to be increased for some
                                 // huge corpora
 typedef uint64_t PRNG_SEED_t;   // PRNG state

@@ -167,16 +167,11 @@ In practice, this amounts to about 20 GB for aligning a large Europarl bitext
 (such as the 1.86 million sentence English-Swedish corpus mentioned above).
 If you align both directions in parallel, you need 40 GB.
 
-If the counter index table (whose length is the sum above) can not fit in an
-unsigned 32-bit integer,
-it is necessary to change `INDEX_t` in `gibbs.c` as well as `cyalign.pyx`.
-This will however further increase memory usage (roughly by a factor of 1.5),
+If the parameter vector can not fit in an unsigned 32-bit integer,
+it is necessary to change `INDEX_t` in `gibbs.c` as well as in `cyalign.pyx`.
+This will however further increase memory usage,
 so the code uses 32-bit integers by default.
-An error will be printed if this happens.
-
-**Update**: 64-bit index pointers are now the default, but you may want to
-switch back if you're going to align fairly small corpora on a system with
-limited memory.
+An error will be printed if the parameter vector becomes too large.
 
 
 ## Implementation notes
