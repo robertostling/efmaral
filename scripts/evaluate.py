@@ -2,13 +2,13 @@
 
 # Script to evaluate efmaral or fast_align using WPT shared task data sets.
 #
-#   time python3 wpteval.py efmaral test.eng.hin.wa test.eng test.hin \
-#       training.eng training.hin
+#   time python3 scripts/evaluate.py efmaral test.eng.hin.wa \
+#       test.eng test.hin training.eng training.hin
 #
 # or, to use fast_align:
 #
-#   time python3 wpteval.py fast_align test.eng.hin.wa test.eng test.hin \
-#       training.eng training.hin
+#   time python3 scripts/evaluate.py fast_align test.eng.hin.wa \
+#       test.eng test.hin training.eng training.hin
 #
 # atools (from the fast_align package) must be installed and in $PATH
 
@@ -85,17 +85,22 @@ def fastalign(args):
 
 
 def main():
-    def align_efmaral(text1, text2, output):
-        subprocess.call(['scripts/align_symmetrize.sh', text1, text2, output])
+    extra_opts = sys.argv[7:]
 
-    def align_fastalign(text1, text2, output):
+    def align_efmaral(text1, text2, output,
+                      symmetrization='grow-diag-final-and'):
+        subprocess.call(['scripts/align_symmetrize.sh', text1, text2, output,
+                         symmetrization] + extra_opts)
+
+    def align_fastalign(text1, text2, output,
+                        symmetrization='grow-diag-final-and'):
         tmp_filename = 'fastalign.txt'
         fwd_filename = 'fastalign.fwd'
         back_filename = 'fastalign.back'
         with open(tmp_filename, 'w') as outf:
             subprocess.call(['scripts/wpt2fastalign.py', text1, text2],
                             stdout=outf)
-    
+
         with Pool(2) as p:
             r = p.map(fastalign,
                       [(tmp_filename, fwd_filename, False),
@@ -104,7 +109,7 @@ def main():
         os.remove(tmp_filename)
         with open(output, 'w') as outf:
             subprocess.call(['atools', '-i', fwd_filename, '-j', back_filename,
-                             '-c', 'grow-diag-final-and'], stdout=outf)
+                             '-c', symmetrization], stdout=outf)
         os.remove(fwd_filename)
         os.remove(back_filename)
 

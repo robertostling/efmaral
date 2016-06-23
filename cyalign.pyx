@@ -295,6 +295,7 @@ def align(list filenames,
 
     cdef TokenizedText tt1, tt2
     cdef tuple voc1, voc2
+    cdef int samples_min, samples_max
 
     if len(filenames) == 1:
         print('Reading %s...' % filenames[0], file=sys.stderr)
@@ -324,7 +325,9 @@ def align(list filenames,
     # Impose absolute limits of 4 to 250 samples.
     # Also, it does not make sense to take fewer samples than we have parallel
     # samplers.
-    n_samples = min(250, max(4, n_samplers, n_samples))
+    samples_max = max(1, int(250*length))
+    samples_min = max(1, int(4*length))
+    n_samples = min(samples_max, max(samples_min, n_samplers, n_samples))
 
     print('Will collect %d samples.' % n_samples, file=sys.stderr)
 

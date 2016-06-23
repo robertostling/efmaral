@@ -49,7 +49,7 @@ poor.
 For the lazy, there is a convenience script to align in both directions and
 perform symmetrization. You can use it with the example data in the repo:
 
-    scripts/align_symmetrize.sh 3rdparty/data/test.eng 3rdparty/data/test.hin test.moses
+    scripts/align_symmetrize.sh 3rdparty/data/test.eng 3rdparty/data/test.hin test.moses grow-diag-final-and
 
 The default values of `efmaral` should give acceptable results, but for a full
 list of options, run:

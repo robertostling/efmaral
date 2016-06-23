@@ -9,6 +9,9 @@ def main():
     parser = argparse.ArgumentParser(
         description='efmaral: efficient Markov Chain word alignment')
     parser.add_argument(
+        '-v', '--verbose', dest='verbose',
+        action='store_true', help='Enable verbose output')
+    parser.add_argument(
         '-r', '--reverse', dest='reverse',
         action='store_true', help='Align in the reverse direction')
     parser.add_argument(
@@ -35,6 +38,10 @@ def main():
         help='Input (either one fast_align-format file, or two Europarl-style)')
 
     args = parser.parse_args()
+
+    if args.verbose:
+        from pprint import pprint
+        pprint(vars(args), stream=sys.stderr)
 
     seed = random.randint(0, 0x7ffffff) if args.seed is None else args.seed
 
