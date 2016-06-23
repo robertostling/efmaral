@@ -30,6 +30,9 @@ def main():
         '-n', '--samplers', dest='n_samplers', default=2, metavar='N',
         type=int, help='Number of independent samplers')
     parser.add_argument(
+        '-m', '--model', dest='model', default=3, metavar='N',
+        type=int, help='Model (1 = IBM1, 2 = IBM1+HMM, 3 = IBM1+HMM+fertility)')
+    parser.add_argument(
         '-l', '--length', dest='length', default=1.0, metavar='X',
         type=float, help='Relative number of sampling iterations')
     parser.add_argument(
@@ -50,7 +53,7 @@ def main():
 
     aaa = align(args.inputs, args.n_samplers, args.length,
                 args.null_prior, args.lex_alpha, args.null_alpha,
-                args.reverse, seed)
+                args.reverse, args.model, seed)
 
     print('Writing alignments...', file=sys.stderr)
     ibm_print(aaa, args.reverse, sys.stdout.fileno())

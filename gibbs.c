@@ -118,10 +118,14 @@ static void gibbs_ibm_sample(
 
     // Fertility count for each token in the source sentence
     int fert[ee_len];
-    for (size_t i=0; i<ee_len+1; i++)
-        fert[i] = 0;
-    for (size_t j=0; j<ff_len; j++)
-        if (aa[j] != null_link) fert[aa[j]]++;
+    if (model == 3) {
+        for (size_t i=0; i<ee_len; i++)
+            fert[i] = 0;
+        for (size_t j=0; j<ff_len; j++)
+            if (aa[j] != null_link) fert[aa[j]]++;
+        for (size_t i=0; i<ee_len; i++)
+            fert_counts[get_fert_index(ee[i], fert[i])] -= (COUNT_t) 1.0;
+    }
 
     // aa_jp1_table[j] will contain the alignment of the nearest non-NULL
     // aligned word to the right (or ee_len if there is no such word)
@@ -148,10 +152,10 @@ static void gibbs_ibm_sample(
         } else {
             const size_t old_i = aa[j];
             counts[counts_idx[old_i]] -= (COUNT_t) 1.0;
-            old_e = (size_t)ee[old_i];
-            fert_counts[get_fert_index(old_e, fert[old_i])] -= (COUNT_t) 1.0;
+            //old_e = (size_t)ee[old_i];
+            //fert_counts[get_fert_index(old_e, fert[old_i])] -= (COUNT_t) 1.0;
             fert[old_i]--;
-            fert_counts[get_fert_index(old_e, fert[old_i])] += (COUNT_t) 1.0;
+            //fert_counts[get_fert_index(old_e, fert[old_i])] += (COUNT_t) 1.0;
         }
 
 #if CACHE_RECIPROCAL
@@ -226,7 +230,7 @@ static void gibbs_ibm_sample(
                 // (FERT_ARRAY_LEN), a very unlikely scenario, assume no
                 // change in probability.
                 const COUNT_t fert_p_ratio =
-                    (fert_idx == FERT_ARRAY_LEN - 1) ? 1.0
+                    (fert[i] == FERT_ARRAY_LEN - 1) ? 1.0
                     : fert_counts[fert_idx+1] / fert_counts[fert_idx];
 
 #if CACHE_RECIPROCAL
@@ -294,10 +298,10 @@ static void gibbs_ibm_sample(
         } else {
             aa[j] = (LINK_t) new_i;
             counts[counts_idx[new_i]] += (COUNT_t) 1.0;
-            new_e = ee[new_i];
-            fert_counts[get_fert_index(new_e, fert[new_i])] -= (COUNT_t) 1.0;
+            //new_e = ee[new_i];
+            //fert_counts[get_fert_index(new_e, fert[new_i])] -= (COUNT_t) 1.0;
             fert[new_i]++;
-            fert_counts[get_fert_index(new_e, fert[new_i])] += (COUNT_t) 1.0;
+            //fert_counts[get_fert_index(new_e, fert[new_i])] += (COUNT_t) 1.0;
         }
 
 #if CACHE_RECIPROCAL
@@ -325,6 +329,10 @@ static void gibbs_ibm_sample(
         // Advance in the indexing vector for the lexical counts array
         counts_idx += ee_len;
     }
+
+    if (model == 3)
+        for (size_t i=0; i<ee_len; i++)
+            fert_counts[get_fert_index(ee[i], fert[i])] += (COUNT_t) 1.0;
 }
 
 // Sample in parallel from a number of samplers using the same text

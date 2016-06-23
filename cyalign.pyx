@@ -274,6 +274,7 @@ def align(list filenames,
           double lex_alpha,
           double null_alpha,
           bool reverse,
+          int model,
           int seed):
     """Align the given file(s) and return the result.
 
@@ -290,6 +291,7 @@ def align(list filenames,
     null_alpha -- see Aligner.align()
     reverse -- reverse the order of the source and target language when
                aligning
+    model -- 1 for IBM1, 2 for HMM, 3 for HMM+fertility
     seed -- PRNG seed
     """
 
@@ -333,8 +335,12 @@ def align(list filenames,
 
     # The default scheme is to spend a third of the time going through
     # IBM1 and HMM, and the rest with the HMM+F model.
-    #scheme = ((1, (n_samples+3)//4), (2, (n_samples+3)//4), (3, n_samples))
-    scheme = ((1, n_samples/4), (2, n_samples/4), (3, n_samples))
+    if model == 1:
+        scheme = ((1, n_samples),)
+    elif model == 2:
+        scheme = ((1, n_samples//4), (2, n_samples))
+    else:
+        scheme = ((1, n_samples//4), (2, n_samples//4), (3, n_samples))
 
     return aligner.align(seed, n_samplers, null_prior, lex_alpha, null_alpha,
                          scheme)
