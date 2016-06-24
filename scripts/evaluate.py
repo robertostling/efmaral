@@ -85,15 +85,18 @@ def fastalign(args):
 
 
 def main():
-    extra_opts = sys.argv[7:]
+    symmetrization = 'grow-diag-final-and'
+    if len(sys.argv) >= 8 and sys.argv[7] == '--symmetrization':
+        symmetrization = sys.argv[8]
+        extra_opts = sys.argv[9:]
+    else:
+        extra_opts = sys.argv[7:]
 
-    def align_efmaral(text1, text2, output,
-                      symmetrization='grow-diag-final-and'):
+    def align_efmaral(text1, text2, output):
         subprocess.call(['scripts/align_symmetrize.sh', text1, text2, output,
                          symmetrization] + extra_opts)
 
-    def align_fastalign(text1, text2, output,
-                        symmetrization='grow-diag-final-and'):
+    def align_fastalign(text1, text2, output):
         tmp_filename = 'fastalign.txt'
         fwd_filename = 'fastalign.fwd'
         back_filename = 'fastalign.back'
