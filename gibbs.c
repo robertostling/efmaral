@@ -24,6 +24,9 @@ void* PyCObject_AsVoidPtr(PyObject* self) {
 
 #include "intmap.c"
 
+// FIXME: temporary hack to check fertility implementations
+#define SENTENCE_FERTILITY  0
+
 // Store reciprocals of lexical distribution normalization factors
 // This is much faster, but for large corpora there may be issues with
 // numerical stability (although I haven't encountered any such case yet).
@@ -123,8 +126,10 @@ static void gibbs_ibm_sample(
             fert[i] = 0;
         for (size_t j=0; j<ff_len; j++)
             if (aa[j] != null_link) fert[aa[j]]++;
+#if SENTENCE_FERTILITY
         for (size_t i=0; i<ee_len; i++)
             fert_counts[get_fert_index(ee[i], fert[i])] -= (COUNT_t) 1.0;
+#endif
     }
 
     // aa_jp1_table[j] will contain the alignment of the nearest non-NULL
@@ -152,10 +157,18 @@ static void gibbs_ibm_sample(
         } else {
             const size_t old_i = aa[j];
             counts[counts_idx[old_i]] -= (COUNT_t) 1.0;
-            //old_e = (size_t)ee[old_i];
-            //fert_counts[get_fert_index(old_e, fert[old_i])] -= (COUNT_t) 1.0;
-            fert[old_i]--;
-            //fert_counts[get_fert_index(old_e, fert[old_i])] += (COUNT_t) 1.0;
+            old_e = (size_t)ee[old_i];
+            if (model == 3) {
+#if !SENTENCE_FERTILITY
+                fert_counts[get_fert_index(old_e, fert[old_i])] -=
+                    (COUNT_t) 1.0;
+#endif
+                fert[old_i]--;
+#if !SENTENCE_FERTILITY
+                fert_counts[get_fert_index(old_e, fert[old_i])] +=
+                    (COUNT_t) 1.0;
+#endif
+            }
         }
 
 #if CACHE_RECIPROCAL
@@ -298,10 +311,18 @@ static void gibbs_ibm_sample(
         } else {
             aa[j] = (LINK_t) new_i;
             counts[counts_idx[new_i]] += (COUNT_t) 1.0;
-            //new_e = ee[new_i];
-            //fert_counts[get_fert_index(new_e, fert[new_i])] -= (COUNT_t) 1.0;
-            fert[new_i]++;
-            //fert_counts[get_fert_index(new_e, fert[new_i])] += (COUNT_t) 1.0;
+            new_e = ee[new_i];
+            if (model == 3) {
+#if !SENTENCE_FERTILITY
+                fert_counts[get_fert_index(new_e, fert[new_i])] -=
+                    (COUNT_t) 1.0;
+#endif
+                fert[new_i]++;
+#if !SENTENCE_FERTILITY
+                fert_counts[get_fert_index(new_e, fert[new_i])] +=
+                    (COUNT_t) 1.0;
+#endif
+            }
         }
 
 #if CACHE_RECIPROCAL
@@ -330,9 +351,11 @@ static void gibbs_ibm_sample(
         counts_idx += ee_len;
     }
 
+#if SENTENCE_FERTILITY
     if (model == 3)
         for (size_t i=0; i<ee_len; i++)
             fert_counts[get_fert_index(ee[i], fert[i])] += (COUNT_t) 1.0;
+#endif
 }
 
 // Sample in parallel from a number of samplers using the same text
