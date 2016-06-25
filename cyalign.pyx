@@ -179,8 +179,10 @@ cdef class Aligner:
         # Jump length counts, the priors are initialized here and the counts
         # by ibm_initialize(). The last value of the vector contains the sum
         # of all the other elements.
-        jump_n = None if model < 2 else np.full(
-                (JUMP_ARRAY_LEN+1,), 0.5, dtype=COUNT_dtype)
+        # TODO: need to modify gibbs.c since it keeps track of jump_n
+        jump_n = np.full((JUMP_ARRAY_LEN+1,), 0.5, dtype=COUNT_dtype)
+        #jump_n = None if model < 2 else np.full(
+        #        (JUMP_ARRAY_LEN+1,), 0.5, dtype=COUNT_dtype)
         if not jump_n is None:
             jump_n[-1] = jump_n[:-1].sum()
 
