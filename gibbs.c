@@ -37,18 +37,27 @@ void* PyCObject_AsVoidPtr(PyObject* self) {
 #define JUMP_SUM        JUMP_ARRAY_LEN
 
 // Changing this requires updating cyalign.pyx!
-#define FERT_ARRAY_LEN  0x20
+#define FERT_ARRAY_LEN  0x08
 
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #define MAX(a,b) (((a)>(b))?(a):(b))
+
+#define COUNT_BITS  32
 
 // Note that these data types are defined separately in cylign.pyx, and must
 // have the same value there as here!
 // Also note that PRNG_SEED_t must be the same as random_state in random.c!
 typedef uint16_t LINK_t;        // type of alignment variables
 typedef uint32_t TOKEN_t;       // type of tokens
+
+#if COUNT_BITS == 32
 typedef float COUNT_t;          // type of almost all floating-point values
 #define NPY_COUNT NPY_FLOAT32   // must be the same as above!
+#else
+typedef double COUNT_t;
+#define NPY_COUNT NPY_FLOAT64
+#endif
+
 typedef uint32_t INDEX_t;       // type of indexes for the lexical counts
                                 // vector, may need to be increased for some
                                 // huge corpora
@@ -387,13 +396,15 @@ static PyObject *py_gibbs_ibm_sample_parallel(PyObject *self, PyObject *args) {
             // If a fertility model is used, first sample the fertility
             // distributions in fert_counts.
             if (fert_counts != NULL) {
+                const size_t e_size =
+                      PyArray_SIZE(fert_counts_array) / FERT_ARRAY_LEN;
                 // Assume a uniform Dirichlet prior (alpha = 1)
                 // Note that fert_counts is used temporarily to store the
                 // counts that are necessary to compute the posteriors, each
                 // will be overwritten by a sampled categorical distribution
                 // drawn from the posterior.
-                for (size_t e=0; e<PyArray_SIZE(fert_counts_array); e++)
-                    fert_counts[e] = (COUNT_t) 1.0;
+                for (size_t i=0; i<e_size*FERT_ARRAY_LEN; i++)
+                    fert_counts[i] = (COUNT_t) 1.0;
 
                 // Count fertility statistics for each source word.
                 for (size_t sent=0; sent<n_sents; sent++) {
@@ -430,18 +441,20 @@ static PyObject *py_gibbs_ibm_sample_parallel(PyObject *self, PyObject *args) {
                 // position i directly stores this value.
                 // Index 0 is undefined, and the maximum value contains a very
                 // low probability (because it should never be used).
-                const size_t e_size =
-                      PyArray_SIZE(fert_counts_array) / FERT_ARRAY_LEN;
                 for (size_t e=0; e<e_size; e++) {
-                    double alpha[FERT_ARRAY_LEN];
-                    double x[FERT_ARRAY_LEN];
-                    for (size_t i=0; i<FERT_ARRAY_LEN; i++)
-                        alpha[i] = (double) fert_counts[get_fert_index(e, i)];
-                    random_dirichlet64(&seed_cache, FERT_ARRAY_LEN, alpha, x);
-                    for (size_t i=0; i<FERT_ARRAY_LEN-1; i++)
-                        fert_counts[get_fert_index(e, i)] =
-                            (COUNT_t) (x[i] / x[i-1]);
-                    fert_counts[get_fert_index(e, FERT_ARRAY_LEN-1)] = 1e-10;
+                    COUNT_t alpha[FERT_ARRAY_LEN];
+                    COUNT_t *buf = fert_counts + get_fert_index(e, 0);
+                    memcpy(alpha, buf, FERT_ARRAY_LEN*sizeof(COUNT_t));
+#if COUNT_BITS == 32
+                    random_dirichlet32_unnormalized(
+                            &seed_cache, FERT_ARRAY_LEN, alpha, buf);
+#else
+                    random_dirichlet64_unnormalized(
+                            &seed_cache, FERT_ARRAY_LEN, alpha, buf);
+#endif
+                    buf[FERT_ARRAY_LEN-1] = 1e-10;
+                    for (size_t i=FERT_ARRAY_LEN-2; i; i--)
+                        buf[i] /= buf[i-1];
                 }
             }
 

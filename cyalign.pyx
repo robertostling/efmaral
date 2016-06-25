@@ -35,7 +35,7 @@ PRNG_SEED_dtype = np.uint64
 # These constants are also defined separately in gibbs.c, must be the same!
 NULL_LINK = 0xffff
 JUMP_ARRAY_LEN = 0x800
-FERT_ARRAY_LEN = 0x20
+FERT_ARRAY_LEN = 0x08
 
 
 cdef class TokenizedText:

@@ -39,6 +39,11 @@ static inline double xss_uniform64(xss_state *state) {
     return (double)(*state-1) / (double)0xffffffffffffffffULL;
 }
 
+static inline float xss_uniform32(xss_state *state) {
+    xss_step(state);
+    return (float)(*state-1) / (float)0xffffffffffffffffULL;
+}
+
 typedef xss_state               random_state;
 #define random_uniform64        xss_uniform64
 #define random_uniform32        xss_uniform32
@@ -71,6 +76,25 @@ static inline double random_log_gamma_small64(
     }
 }
 
+static inline float random_log_gamma_small32(
+        random_state *state, const float alpha)
+{
+    const float e = 2.7182818284590452354f;
+    const float lambda = (1.0 / alpha) - 1.0;
+    const float w = alpha / (e * (1.0 - alpha));
+    const float r = 1.0 / (1.0 + w);
+
+    while(1) {
+        const float u = random_uniform32(state);
+        const float z = (u <= r)? -logf(u/r)
+                                 : logf(random_uniform32(state))/lambda;
+        const float h = expf(-z-expf(-z/alpha));
+        const float eta = (z >= 0.0)? expf(-z): w*lambda*expf(lambda*z);
+        if (h > eta*random_uniform32(state))
+            return -z/alpha;
+    }
+}
+
 /* Sample from gamma(alpha >= 1, 1)
  *
  * R. C. H. Cheng (1977)
@@ -93,24 +117,51 @@ static inline double random_gamma64(
     }
 }
 
-static void random_dirichlet64(
+static inline float random_gamma32(
+        random_state *state, const float alpha)
+{
+    const float a = 1.0/sqrtf(2.0*alpha - 1.0);
+    const float b = alpha - logf(4.0);
+    const float c = alpha + 1.0/a;
+    while(1) {
+        const float u1 = random_uniform32(state);
+        const float u2 = random_uniform32(state);
+        const float v = a * logf(u1 / (1.0-u1));
+        const float x = alpha * expf(v);
+        if (b + c*v - x >= logf(u1*u1*u2)) return x;
+    }
+}
+
+static void random_dirichlet64_unnormalized(
         random_state *state, size_t d, const double *alpha, double *x)
 {
-    double x_sum = 0.0;
     for (size_t i=0; i<d; i++) {
         // Note: in the interval around 0.2 -- 0.9 there are better
         // options than either of these algorithms, but that's not a common
         // case in our applications.
         if (alpha[i] < 0.6) {
-            x_sum += x[i] = exp(random_log_gamma_small64(state, alpha[i]));
+            x[i] = exp(random_log_gamma_small64(state, alpha[i]));
         } else {
-            x_sum += x[i] = random_gamma64(state, alpha[i]);
+            x[i] = random_gamma64(state, alpha[i]);
         }
     }
-    const double scale = 1.0 / x_sum;
-    for (size_t i=0; i<d; i++)
-        x[i] *= scale;
 }
+
+static void random_dirichlet32_unnormalized(
+        random_state *state, size_t d, const float *alpha, float *x)
+{
+    for (size_t i=0; i<d; i++) {
+        // Note: in the interval around 0.2 -- 0.9 there are better
+        // options than either of these algorithms, but that's not a common
+        // case in our applications.
+        if (alpha[i] < 0.6f) {
+            x[i] = expf(random_log_gamma_small32(state, alpha[i]));
+        } else {
+            x[i] = random_gamma32(state, alpha[i]);
+        }
+    }
+}
+
 
 #endif
 
