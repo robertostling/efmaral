@@ -22,10 +22,9 @@ void* PyCObject_AsVoidPtr(PyObject* self) {
 #include <stdint.h>
 #include <stdio.h>
 
-#include "intmap.c"
+#include "random.c"
 
-// FIXME: temporary hack to check fertility implementations
-#define SENTENCE_FERTILITY  0
+#include "intmap.c"
 
 // Store reciprocals of lexical distribution normalization factors
 // This is much faster, but for large corpora there may be issues with
@@ -45,6 +44,7 @@ void* PyCObject_AsVoidPtr(PyObject* self) {
 
 // Note that these data types are defined separately in cylign.pyx, and must
 // have the same value there as here!
+// Also note that PRNG_SEED_t must be the same as random_state in random.c!
 typedef uint16_t LINK_t;        // type of alignment variables
 typedef uint32_t TOKEN_t;       // type of tokens
 typedef float COUNT_t;          // type of almost all floating-point values
@@ -52,7 +52,7 @@ typedef float COUNT_t;          // type of almost all floating-point values
 typedef uint32_t INDEX_t;       // type of indexes for the lexical counts
                                 // vector, may need to be increased for some
                                 // huge corpora
-typedef uint64_t PRNG_SEED_t;   // PRNG state
+typedef uint64_t PRNG_SEED_t;   // must be same as random_state in random.c
 
 // Value to represent links to the NULL word internally
 static const LINK_t null_link = 0xffff;
@@ -80,7 +80,6 @@ inline static size_t get_jump_index(int i, int j, int len) {
 }
 
 inline static size_t get_fert_index(size_t e, int fert) {
-    //if (fert < 0) return FERT_ARRAY_LEN-1;
     return e*FERT_ARRAY_LEN + (size_t)MIN(fert, FERT_ARRAY_LEN-1);
 }
 
@@ -126,10 +125,6 @@ static void gibbs_ibm_sample(
             fert[i] = 0;
         for (size_t j=0; j<ff_len; j++)
             if (aa[j] != null_link) fert[aa[j]]++;
-#if SENTENCE_FERTILITY
-        for (size_t i=0; i<ee_len; i++)
-            fert_counts[get_fert_index(ee[i], fert[i])] -= (COUNT_t) 1.0;
-#endif
     }
 
     // aa_jp1_table[j] will contain the alignment of the nearest non-NULL
@@ -158,17 +153,8 @@ static void gibbs_ibm_sample(
             const size_t old_i = aa[j];
             counts[counts_idx[old_i]] -= (COUNT_t) 1.0;
             old_e = (size_t)ee[old_i];
-            if (model == 3) {
-#if !SENTENCE_FERTILITY
-                fert_counts[get_fert_index(old_e, fert[old_i])] -=
-                    (COUNT_t) 1.0;
-#endif
+            if (model == 3)
                 fert[old_i]--;
-#if !SENTENCE_FERTILITY
-                fert_counts[get_fert_index(old_e, fert[old_i])] +=
-                    (COUNT_t) 1.0;
-#endif
-            }
         }
 
 #if CACHE_RECIPROCAL
@@ -236,24 +222,15 @@ static void gibbs_ibm_sample(
             size_t jump2 = get_jump_index(0, aa_jp1, ee_len);
 
             for (size_t i=0; i<ee_len; i++) {
-                const size_t fert_idx = get_fert_index(ee[i], fert[i]);
-                // The change in total probability by replacing the current
-                // fertility of source word ee[i] with a value one higher.
-                // If this word already has reached the maximum fertility
-                // (FERT_ARRAY_LEN), a very unlikely scenario, assume no
-                // change in probability.
-                const COUNT_t fert_p_ratio =
-                    (fert[i] == FERT_ARRAY_LEN - 1) ? 1.0
-                    : fert_counts[fert_idx+1] / fert_counts[fert_idx];
-
+                const size_t fert_idx = get_fert_index(ee[i], fert[i]+1);
 #if CACHE_RECIPROCAL
                 ps_sum += (counts[counts_idx[i]] * counts_sum[ee[i]] *
                            jump_counts[jump1] * jump_counts[jump2] *
-                           fert_p_ratio);
+                           fert_counts[fert_idx]);
 #else
                 ps_sum += (counts[counts_idx[i]] / counts_sum[ee[i]] *
                            jump_counts[jump1] * jump_counts[jump2] *
-                           fert_p_ratio);
+                           fert_counts[fert_idx]);
 #endif
                 ps[i] = ps_sum;
                 jump1 = MIN(JUMP_ARRAY_LEN-1, jump1+1);
@@ -312,17 +289,8 @@ static void gibbs_ibm_sample(
             aa[j] = (LINK_t) new_i;
             counts[counts_idx[new_i]] += (COUNT_t) 1.0;
             new_e = ee[new_i];
-            if (model == 3) {
-#if !SENTENCE_FERTILITY
-                fert_counts[get_fert_index(new_e, fert[new_i])] -=
-                    (COUNT_t) 1.0;
-#endif
+            if (model == 3)
                 fert[new_i]++;
-#if !SENTENCE_FERTILITY
-                fert_counts[get_fert_index(new_e, fert[new_i])] +=
-                    (COUNT_t) 1.0;
-#endif
-            }
         }
 
 #if CACHE_RECIPROCAL
@@ -350,12 +318,6 @@ static void gibbs_ibm_sample(
         // Advance in the indexing vector for the lexical counts array
         counts_idx += ee_len;
     }
-
-#if SENTENCE_FERTILITY
-    if (model == 3)
-        for (size_t i=0; i<ee_len; i++)
-            fert_counts[get_fert_index(ee[i], fert[i])] += (COUNT_t) 1.0;
-#endif
 }
 
 // Sample in parallel from a number of samplers using the same text
@@ -422,6 +384,68 @@ static PyObject *py_gibbs_ibm_sample_parallel(PyObject *self, PyObject *args) {
                 ? NULL
                 : PyArray_GETPTR1(fert_counts_array, 0);
 
+            // If a fertility model is used, first sample the fertility
+            // distributions in fert_counts.
+            if (fert_counts != NULL) {
+                // Assume a uniform Dirichlet prior (alpha = 1)
+                // Note that fert_counts is used temporarily to store the
+                // counts that are necessary to compute the posteriors, each
+                // will be overwritten by a sampled categorical distribution
+                // drawn from the posterior.
+                for (size_t e=0; e<PyArray_SIZE(fert_counts_array); e++)
+                    fert_counts[e] = (COUNT_t) 1.0;
+
+                // Count fertility statistics for each source word.
+                for (size_t sent=0; sent<n_sents; sent++) {
+                    PyArrayObject *ee_array =
+                        (PyArrayObject*) PyTuple_GET_ITEM(eee, sent);
+                    PyArrayObject *ff_array =
+                        (PyArrayObject*) PyTuple_GET_ITEM(fff, sent);
+                    const size_t ee_len = (size_t) PyArray_DIM(ee_array, 0);
+                    const size_t ff_len = (size_t) PyArray_DIM(ff_array, 0);
+
+                    if (ee_len == 0 || ff_len == 0) continue;
+
+                    PyArrayObject *aa_array =
+                        (PyArrayObject*) PyTuple_GET_ITEM(aaa, sent);
+
+                    const TOKEN_t *ee =
+                        (const TOKEN_t*) PyArray_GETPTR1(ee_array, 0);
+                    LINK_t *aa = (LINK_t*) PyArray_GETPTR1(aa_array, 0);
+                    int fert[ee_len];
+                    for (size_t i=0; i<ee_len; i++)
+                        fert[i] = 0;
+                    for (size_t j=0; j<ff_len; j++)
+                        if (aa[j] != null_link) fert[aa[j]]++;
+                    for (size_t i=0; i<ee_len; i++)
+                        fert_counts[get_fert_index(ee[i], fert[i])] +=
+                            (COUNT_t)1.0;
+                }
+
+                // Sample a categorical distribution from the posterior for
+                // each source word e.
+                //
+                // Note that since we only ever want to use
+                //      P(phi(i)) / P(phi(i)-1)
+                // position i directly stores this value.
+                // Index 0 is undefined, and the maximum value contains a very
+                // low probability (because it should never be used).
+                const size_t e_size =
+                      PyArray_SIZE(fert_counts_array) / FERT_ARRAY_LEN;
+                for (size_t e=0; e<e_size; e++) {
+                    double alpha[FERT_ARRAY_LEN];
+                    double x[FERT_ARRAY_LEN];
+                    for (size_t i=0; i<FERT_ARRAY_LEN; i++)
+                        alpha[i] = (double) fert_counts[get_fert_index(e, i)];
+                    random_dirichlet64(&seed_cache, FERT_ARRAY_LEN, alpha, x);
+                    for (size_t i=0; i<FERT_ARRAY_LEN-1; i++)
+                        fert_counts[get_fert_index(e, i)] =
+                            (COUNT_t) (x[i] / x[i-1]);
+                    fert_counts[get_fert_index(e, FERT_ARRAY_LEN-1)] = 1e-10;
+                }
+            }
+
+            // Sample the alignments sentence by sentence.
             for (size_t sent=0; sent<n_sents; sent++) {
                 PyArrayObject *ee_array =
                     (PyArrayObject*) PyTuple_GET_ITEM(eee, sent);
@@ -664,9 +688,6 @@ static PyObject *py_gibbs_ibm_initialize(PyObject *self, PyObject *args) {
     COUNT_t *jump_counts = ((PyObject*)jump_counts_array == Py_None)
         ? NULL
         : PyArray_GETPTR1(jump_counts_array, 0);
-    COUNT_t *fert_counts = ((PyObject*)fert_counts_array == Py_None)
-        ? NULL
-        : PyArray_GETPTR1(fert_counts_array, 0);
 
     const size_t n_sents = PyTuple_Size(eee);
     const size_t counts_size = PyArray_DIM(counts_array, 0);
@@ -737,15 +758,6 @@ static PyObject *py_gibbs_ibm_initialize(PyObject *self, PyObject *args) {
                 }
                 counts_idx += ee_len;
             }
-        }
-        if (fert_counts != NULL) {
-            int fert[ee_len];
-            for (size_t i=0; i<ee_len; i++)
-                fert[i] = 0;
-            for (size_t j=0; j<ff_len; j++)
-                if (aa[j] != null_link) fert[aa[j]]++;
-            for (size_t i=0; i<ee_len; i++)
-                fert_counts[get_fert_index(ee[i], fert[i])] += (COUNT_t)1.0;
         }
         if (jump_counts != NULL && aa_jm1 >= 0) {
             jump_counts[get_jump_index(aa_jm1, ee_len, ee_len)] += (COUNT_t)1.0;
