@@ -14,18 +14,17 @@
 
 import re, sys, subprocess, os
 from multiprocessing import Pool
+from tempfile import NamedTemporaryFile
 
 RE_NUMBERED = re.compile(r'<s snum=(\d+)>(.*?)</s>\s*$')
 
 def wpteval(align, train_filenames, test_filename, gold_wa):
     test_numbers = []
-    text1_filename = 'text1.txt'
-    text2_filename = 'text2.txt'
-    align_filename = 'text1-text2.moses'
-    align_wa = 'text1-text2.wa'
 
-    with open(text1_filename, 'w', encoding='utf-8') as outf1, \
-         open(text2_filename, 'w', encoding='utf-8') as outf2:
+    mosesf = NamedTemporaryFile('w+', encoding='utf-8')
+
+    with NamedTemporaryFile('w', encoding='utf-8') as outf1, \
+         NamedTemporaryFile('w', encoding='utf-8') as outf2:
         with open(test_filename[0], 'r', encoding='utf-8') as f:
             for i,line in enumerate(f):
                 m = RE_NUMBERED.match(line)
@@ -57,21 +56,22 @@ def wpteval(align, train_filenames, test_filename, gold_wa):
                         print(line1, file=outf1)
                         print(line2, file=outf2)
 
-    align(text1_filename, text2_filename, align_filename)
+        outf1.flush()
+        outf2.flush()
+        align(outf1.name, outf2.name, mosesf.name)
 
-    with open(align_filename, 'r') as f, \
-         open(align_wa, 'w') as outf:
+    with NamedTemporaryFile('w', encoding='utf-8') as outf:
         for lineno in test_numbers:
-            for i,j in map(lambda s: s.split('-'), f.readline().split()):
+            for i,j in map(lambda s: s.split('-'), mosesf.readline().split()):
                 print('%s %d %d' % (lineno, int(i)+1, int(j)+1), file=outf)
 
-    subprocess.call(['perl', '3rdparty/wa_check_align.pl', align_wa])
-    subprocess.call(['perl', '3rdparty/wa_eval_align.pl', gold_wa, align_wa])
+        outf.flush()
+        subprocess.call(
+                ['perl', '3rdparty/wa_check_align.pl', outf.name])
+        subprocess.call(
+                ['perl', '3rdparty/wa_eval_align.pl', gold_wa, outf.name])
 
-    os.remove(text1_filename)
-    os.remove(text2_filename)
-    os.remove(align_filename)
-    os.remove(align_wa)
+    mosesf.close()
 
 
 def fastalign(args):
