@@ -97,24 +97,21 @@ def main():
                          symmetrization] + extra_opts)
 
     def align_fastalign(text1, text2, output):
-        tmp_filename = 'fastalign.txt'
-        fwd_filename = 'fastalign.fwd'
-        back_filename = 'fastalign.back'
-        with open(tmp_filename, 'w') as outf:
+        with NamedTemporaryFile('w', encoding='utf-8') as outf, \
+             NamedTemporaryFile('w', encoding='utf-8') as fwdf, \
+             NamedTemporaryFile('w', encoding='utf-8') as backf:
             subprocess.call(['scripts/wpt2fastalign.py', text1, text2],
                             stdout=outf)
+            outf.flush()
 
-        with Pool(2) as p:
-            r = p.map(fastalign,
-                      [(tmp_filename, fwd_filename, False),
-                       (tmp_filename, back_filename, True)])
+            with Pool(2) as p:
+                r = p.map(fastalign,
+                          [(outf.name, fwdf.name, False),
+                           (outf.name, backf.name, True)])
 
-        os.remove(tmp_filename)
-        with open(output, 'w') as outf:
-            subprocess.call(['atools', '-i', fwd_filename, '-j', back_filename,
-                             '-c', symmetrization], stdout=outf)
-        os.remove(fwd_filename)
-        os.remove(back_filename)
+            with open(output, 'w') as outputf:
+                subprocess.call(['atools', '-i', fwdf.name, '-j', backf.name,
+                                 '-c', symmetrization], stdout=outputf)
 
     aligner = align_efmaral if sys.argv[1] == 'efmaral' else align_fastalign
     wpteval(aligner,
