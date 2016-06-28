@@ -47,26 +47,32 @@ cdef class TokenizedText:
     sents -- sentences (tuple of ndarray[TOKEN_t])
     indexer -- mapping from strings to word indexes
     voc -- tuple of vocabulary, corresponding to indexer
+    prefix_len -- if above 0, cut each word off after this many characters
+    suffix_len -- same as above, but for suffixes rather than prefixes
     """
 
     cdef tuple sents
     cdef dict indexer
     cdef tuple voc
+    cdef int prefix_len
+    cdef int suffix_len
 
-    def __init__(self, arg):
+    def __init__(self, arg, prefix_len, suffix_len):
         """Create a new TokenizedText instance.
 
         If the argument is a str object, this is interpreted as a filename
         from which the file is read. If it is a list object, this is assumed
         to contain tokenized sentences as lists of strings.
         """
-
+        self.prefix_len = prefix_len
+        self.suffix_len = suffix_len
         if type(arg) is str: self.read_file(arg)
         elif type(arg) is list: self.read_sents(arg)
 
     cdef read_file(self, str filename):
         cdef list sents
         cdef str line
+        cdef str s
         with open(filename, 'r', encoding='utf-8') as f:
             sents = [line.lower().split() for line in f]
         self.read_sents(sents)
@@ -76,16 +82,29 @@ cdef class TokenizedText:
         cdef str s
         cdef list sent
         indexer = { '': 0 } # NULL word has index 0
-        self.sents = tuple([
-            np.array([indexer.setdefault(s, len(indexer)) for s in sent],
-                     dtype=TOKEN_dtype)
-            for sent in sents])
+        if self.prefix_len > 0:
+            self.sents = tuple([
+                np.array([indexer.setdefault(s[:self.prefix_len], len(indexer))
+                          for s in sent],
+                         dtype=TOKEN_dtype)
+                for sent in sents])
+        elif self.suffix_len > 0:
+            self.sents = tuple([
+                np.array([indexer.setdefault(s[-self.suffix_len:], len(indexer))
+                          for s in sent],
+                         dtype=TOKEN_dtype)
+                for sent in sents])
+        else:
+            self.sents = tuple([
+                np.array([indexer.setdefault(s, len(indexer)) for s in sent],
+                         dtype=TOKEN_dtype)
+                for sent in sents])
         self.indexer = indexer
         self.voc = tuple(
             [s for s,_ in sorted(indexer.items(), key=itemgetter(1))])
 
 
-cpdef read_fastalign(filename):
+cpdef read_fastalign(filename, prefix_len, suffix_len):
     """Read a file in fast_align format.
 
     Returns the two sides of the text as a tuple of two TokenizedText
@@ -97,8 +116,10 @@ cpdef read_fastalign(filename):
     cdef str line
     with open(filename, 'r', encoding='utf-8') as f:
         pair = tuple(zip(*[line.lower().split('|||') for line in f]))
-    text1 = TokenizedText([line.split() for line in pair[0]])
-    text2 = TokenizedText([line.split() for line in pair[1]])
+    text1 = TokenizedText([line.split() for line in pair[0]],
+                          prefix_len, suffix_len)
+    text2 = TokenizedText([line.split() for line in pair[1]],
+                          prefix_len, suffix_len)
     return text1, text2
 
 
@@ -277,6 +298,8 @@ def align(list filenames,
           double null_alpha,
           bool reverse,
           int model,
+          int prefix_len,
+          int suffix_len,
           int seed):
     """Align the given file(s) and return the result.
 
@@ -294,6 +317,8 @@ def align(list filenames,
     reverse -- reverse the order of the source and target language when
                aligning
     model -- 1 for IBM1, 2 for HMM, 3 for HMM+fertility
+    prefix_len -- 0 for no stemming, otherwise length of prefix to keep
+    suffix_len -- 0 for no stemming, otherwise length of suffix to keep
     seed -- PRNG seed
     """
 
@@ -303,13 +328,13 @@ def align(list filenames,
 
     if len(filenames) == 1:
         print('Reading %s...' % filenames[0], file=sys.stderr)
-        tt1, tt2 = read_fastalign(filenames[0])
+        tt1, tt2 = read_fastalign(filenames[0], prefix_len, suffix_len)
     else:
         filename1, filename2 = filenames
         print('Reading %s...' % filename1, file=sys.stderr)
-        tt1 = TokenizedText(filename1)
+        tt1 = TokenizedText(filename1, prefix_len, suffix_len)
         print('Reading %s...' % filename2, file=sys.stderr)
-        tt2 = TokenizedText(filename2)
+        tt2 = TokenizedText(filename2, prefix_len, suffix_len)
     if reverse:
         tt1, tt2 = tt2, tt1
 

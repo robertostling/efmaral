@@ -33,6 +33,12 @@ def main():
         '-m', '--model', dest='model', default=3, metavar='N',
         type=int, help='Model (1 = IBM1, 2 = IBM1+HMM, 3 = IBM1+HMM+fertility)')
     parser.add_argument(
+        '--prefix', dest='prefix_len', default=0, metavar='N',
+        type=int, help='Length of prefix for stemming (default: no stemming)')
+    parser.add_argument(
+        '--suffix', dest='suffix_len', default=0, metavar='N',
+        type=int, help='Length of suffix for stemming (default: no stemming)')
+    parser.add_argument(
         '-l', '--length', dest='length', default=1.0, metavar='X',
         type=float, help='Relative number of sampling iterations')
     parser.add_argument(
@@ -53,7 +59,8 @@ def main():
 
     aaa = align(args.inputs, args.n_samplers, args.length,
                 args.null_prior, args.lex_alpha, args.null_alpha,
-                args.reverse, args.model, seed)
+                args.reverse, args.model, args.prefix_len, args.suffix_len,
+                seed)
 
     print('Writing alignments...', file=sys.stderr)
     ibm_print(aaa, args.reverse, sys.stdout.fileno())
