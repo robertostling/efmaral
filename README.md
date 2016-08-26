@@ -7,10 +7,8 @@ accurate. In addition, it can function as a plug-in replacement for
 [fast_align](https://github.com/clab/fast_align), or be used as a library from
 a Python program.
 
-The model used is described in my thesis, which you may want to consider
-citing if you use this tool:
-* [Robert Östling](http://www.robos.org/). [Bayesian Models for Multilingual Word Alignment](http://urn.kb.se/resolve?urn=urn:nbn:se:su:diva-115541). PhD thesis, Stockholm University, 2015.
-
+A thorough description can be found in
+[Östling and Tiedemann (2016)](http://www.robos.org/sections/research/efmaral-final-submitted.pdf) ([BibTeX](http://www.robos.org/sections/research/robert_bib.html#Ostling2016efmaral)).
 
 ## Installing
 
