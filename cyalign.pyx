@@ -221,7 +221,8 @@ cdef class Aligner:
                double null_prior,
                double lex_alpha,
                double null_alpha,
-               tuple scheme):
+               tuple scheme,
+               bool discretize):
         """Align the bitext this instance was created with.
 
         prng_seed -- seed for random state
@@ -281,13 +282,15 @@ cdef class Aligner:
             t = time.time() - t0
             print(' done (%.3f s)' % t, file=sys.stderr)
 
-        print('Computing final alignments...', file=sys.stderr)
-
         # Borrow the sampling array from the first sampler, since we won't
         # need this anyway and it's already allocated.
         aaa = params[0][0]
-        ibm_discretize(sent_ps, aaa)
-        return aaa
+        if discretize:
+            print('Computing final alignments...', file=sys.stderr)
+            ibm_discretize(sent_ps, aaa)
+            return aaa
+        else:
+            return sent_ps
 
 
 def align(list filenames,
@@ -370,5 +373,69 @@ def align(list filenames,
         scheme = ((1, n_samples//4), (2, n_samples//4), (3, n_samples))
 
     return aligner.align(seed, n_samplers, null_prior, lex_alpha, null_alpha,
-                         scheme)
+                         scheme, True)
+
+    
+def align_soft(
+        list sents1,
+        list sents2,
+        int n_samplers,
+        double length,
+        double null_prior,
+        double lex_alpha,
+        double null_alpha,
+        bool reverse,
+        int model,
+        int prefix_len1,
+        int suffix_len1,
+        int prefix_len2,
+        int suffix_len2,
+        int seed):
+    """Align the given file(s) and return alignment marginal distributions.
+
+    See align() for further information.
+    This function accepts lists with words (tokenized sentences) instead of
+    filenames like align().
+    """
+
+    cdef TokenizedText tt1, tt2
+    cdef tuple voc1, voc2
+    cdef int samples_min, samples_max
+
+    tt1 = TokenizedText(sents1, prefix_len1, suffix_len1)
+    tt2 = TokenizedText(sents2, prefix_len2, suffix_len2)
+
+    index_size = sum(sent1.shape[0] * sent2.shape[0]
+                     for sent1, sent2 in zip(tt1.sents, tt2.sents))
+    print('Index table will require %d elements.' % index_size,
+          file=sys.stderr)
+
+    if len(tt1.sents) != len(tt2.sents):
+        raise ValueError('Trying to align texts of different lengths!')
+
+    aligner = Aligner(tt1.voc, tt2.voc, tt1.sents, tt2.sents)
+    n_samples = int(10000 / math.sqrt(len(tt1.sents)))
+
+    # Scale by the user-supplied length parameter.
+    n_samples = int(length * n_samples)
+    # Impose absolute limits of 4 to 250 samples.
+    # Also, it does not make sense to take fewer samples than we have parallel
+    # samplers.
+    samples_max = max(1, int(250*length))
+    samples_min = max(1, int(4*length))
+    n_samples = min(samples_max, max(samples_min, n_samplers, n_samples))
+
+    print('Will collect %d samples.' % n_samples, file=sys.stderr)
+
+    # The default scheme is to spend a third of the time going through
+    # IBM1 and HMM, and the rest with the HMM+F model.
+    if model == 1:
+        scheme = ((1, n_samples),)
+    elif model == 2:
+        scheme = ((1, n_samples//4), (2, n_samples))
+    else:
+        scheme = ((1, n_samples//4), (2, n_samples//4), (3, n_samples))
+
+    return aligner.align(seed, n_samplers, null_prior, lex_alpha, null_alpha,
+                         scheme, False)
 
