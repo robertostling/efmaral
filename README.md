@@ -8,7 +8,7 @@ accurate. In addition, it can function as a plug-in replacement for
 a Python program.
 
 A thorough description can be found in
-[Östling and Tiedemann (2016)](http://www.robos.org/sections/research/efmaral-final-submitted.pdf) ([BibTeX](http://www.robos.org/sections/research/robert_bib.html#Ostling2016efmaral)).
+[Östling and Tiedemann (2016)](https://ufal.mff.cuni.cz/pbml/106/art-ostling-tiedemann.pdf) ([BibTeX](http://www.robos.org/sections/research/robert_bib.html#Ostling2016efmaral)).
 
 ## Installing
 
