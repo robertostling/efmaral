@@ -68,6 +68,8 @@ cdef class TokenizedText:
         self.suffix_len = suffix_len
         if type(arg) is str: self.read_file(arg)
         elif type(arg) is list: self.read_sents(arg)
+        elif type(arg) is tuple:
+            self.sents, self.voc, self.indexer = arg
 
     cdef read_file(self, str filename):
         cdef list sents
@@ -368,9 +370,10 @@ def align(list filenames,
     if model == 1:
         scheme = ((1, n_samples),)
     elif model == 2:
-        scheme = ((1, n_samples//4), (2, n_samples))
+        scheme = ((1, max(1, n_samples//4)), (2, n_samples))
     else:
-        scheme = ((1, n_samples//4), (2, n_samples//4), (3, n_samples))
+        scheme = ((1, max(1, n_samples//4)), (2, max(1, n_samples//4)),
+                  (3, n_samples))
 
     return aligner.align(seed, n_samplers, null_prior, lex_alpha, null_alpha,
                          scheme, True)
@@ -432,10 +435,118 @@ def align_soft(
     if model == 1:
         scheme = ((1, n_samples),)
     elif model == 2:
-        scheme = ((1, n_samples//4), (2, n_samples))
+        scheme = ((1, max(1, n_samples//4)), (2, n_samples))
     else:
-        scheme = ((1, n_samples//4), (2, n_samples//4), (3, n_samples))
+        scheme = ((1, max(1, n_samples//4)), (2, max(1, n_samples//4)),
+                  (3, n_samples))
 
     return aligner.align(seed, n_samplers, null_prior, lex_alpha, null_alpha,
                          scheme, False)
+
+
+def align_numeric(
+        tuple sents1,
+        tuple sents2,
+        tuple voc1,
+        tuple voc2,
+        dict indexer1,
+        dict indexer2,
+        int n_samplers,
+        double length,
+        double null_prior,
+        double lex_alpha,
+        double null_alpha,
+        bool reverse,
+        int model,
+        int seed,
+        bool discretize):
+    """Align the given file(s) and return alignment marginal distributions.
+
+    See align() for further information.
+    This function accepts lists with ndarray(uint32) for sentences.
+    """
+
+    cdef TokenizedText tt1, tt2
+    cdef int samples_min, samples_max
+
+    tt1 = TokenizedText((sents1, voc1, indexer1), 0, 0)
+    tt2 = TokenizedText((sents2, voc2, indexer2), 0, 0)
+
+    index_size = sum(sent1.shape[0] * sent2.shape[0]
+                     for sent1, sent2 in zip(tt1.sents, tt2.sents))
+    print('Index table will require %d elements.' % index_size,
+          file=sys.stderr)
+
+    if len(tt1.sents) != len(tt2.sents):
+        raise ValueError('Trying to align texts of different lengths!')
+
+    aligner = Aligner(tt1.voc, tt2.voc, tt1.sents, tt2.sents)
+    n_samples = int(10000 / math.sqrt(len(tt1.sents)))
+
+    # Scale by the user-supplied length parameter.
+    n_samples = int(length * n_samples)
+    # Impose absolute limits of 4 to 250 samples.
+    # Also, it does not make sense to take fewer samples than we have parallel
+    # samplers.
+    samples_max = max(1, int(250*length))
+    samples_min = max(1, int(4*length))
+    n_samples = min(samples_max, max(samples_min, n_samplers, n_samples))
+
+    print('Will collect %d samples.' % n_samples, file=sys.stderr)
+
+    # The default scheme is to spend a third of the time going through
+    # IBM1 and HMM, and the rest with the HMM+F model.
+    if model == 1:
+        scheme = ((1, n_samples),)
+    elif model == 2:
+        scheme = ((1, max(1, n_samples//4)), (2, n_samples))
+    else:
+        scheme = ((1, max(1, n_samples//4)), (2, max(1, n_samples//4)),
+                  (3, n_samples))
+
+    return aligner.align(seed, n_samplers, null_prior, lex_alpha, null_alpha,
+                         scheme, discretize)
+
+
+cpdef tuple get_link_coo(tuple eee_fff, tuple aaa, int e_base, int f_base):
+    cdef int n_links, n_f, n_e, i, j
+    cdef np.ndarray[TOKEN_t, ndim=1] ee, ff
+    cdef np.ndarray[LINK_t, ndim=1] aa
+    cdef np.ndarray[TOKEN_t, ndim=1] ii
+    cdef np.ndarray[TOKEN_t, ndim=1] jj
+
+    n_links = 0
+    for i in range(len(eee_fff)):
+        ee, ff = eee_fff[i]
+        aa = aaa[i]
+        n_f = len(ff)
+        n_e = len(ee)
+        j = 0
+        while j < n_f:
+            a = aa[j]
+            if a < n_e:
+                n_links += 1
+            j += 1
+
+    ii = np.empty((n_links,), dtype=TOKEN_dtype)
+    jj = np.empty((n_links,), dtype=TOKEN_dtype)
+
+    n_links = 0
+    for i in range(len(eee_fff)):
+        ee, ff = eee_fff[i]
+        aa = aaa[i]
+        n_f = len(ff)
+        n_e = len(ee)
+        j = 0
+        while j < n_f:
+            a = aa[j]
+            if a < n_e:
+                f = ff[j]
+                e = ee[a]
+                ii[n_links] = e_base + e
+                jj[n_links] = f_base + f
+                n_links += 1
+            j += 1
+
+    return ii, jj
 
