@@ -17,10 +17,11 @@ SYMMETRIZATION=$4
 #    SYMMETRIZATION=$4
 #fi
 
+DIR=`dirname $0`/..
 FWD=`mktemp`
 BWD=`mktemp`
-python3 efmaral.py --verbose -i "$1" "$2" "${@:5}" >"$FWD" &
-python3 efmaral.py --verbose -r -i "$1" "$2" "${@:5}" >"$BWD" &
+python3 $DIR/efmaral.py --verbose -i "$1" "$2" "${@:5}" >"$FWD" &
+python3 $DIR/efmaral.py --verbose -r -i "$1" "$2" "${@:5}" >"$BWD" &
 wait
 atools -c $SYMMETRIZATION -i "$FWD" -j "$BWD" >"$3"
 rm "$FWD" "$BWD"
