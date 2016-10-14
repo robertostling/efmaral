@@ -2,11 +2,13 @@
 
 from distutils.core import setup, Extension
 from Cython.Build import cythonize
+import numpy
 
 gibbsmodule = Extension(
     'gibbs',
     sources=['gibbs.c'],
     libraries=[],
+    include_dirs=[numpy.get_include()],
     # NOTE: the -Wno.. arguments are to compensate for a bug in the build
     # system
     extra_compile_args=['-std=c99', '-Wall', '-fopenmp',
@@ -20,8 +22,11 @@ gibbsmodule = Extension(
                         ],
     extra_link_args=['-lgomp'])
 
+cyalign_ext=Extension('cyalign',['cyalign.pyx'],
+                      include_dirs=[numpy.get_include()])
+
 setup(
     name = 'Gibbs aligner',
-    ext_modules = cythonize("cyalign.pyx") + [gibbsmodule]
+    ext_modules = cythonize(cyalign_ext) + [gibbsmodule]
 )
 
