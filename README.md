@@ -19,6 +19,7 @@ installed:
  * gcc (tested with version 4.9) and GNU Make
  * Cython (tested with version 0.21 and 0.20)
  * NumPY (tested with version 1.8.2)
+ * `fast_align` (needed if you want to use the `atools` utility for symmetrization)
 
 These can be installed on Debian 8 (jessie) using the following command as root:
 
