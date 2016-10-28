@@ -31,6 +31,10 @@ Then, clone this repository and run `make`:
     cd efmaral
     make
 
+If you want to install the libraries for use by other Python programs, do:
+
+    python3 setup.py install
+
 If everything works, you can try directly to evaluate with a small part of
 the English-Hindi data set from WPT-05:
 

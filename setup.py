@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-from distutils.core import setup, Extension
+from setuptools import setup, Extension
+#from distutils.core import setup, Extension
 from Cython.Build import cythonize
 import numpy
 
@@ -26,7 +27,12 @@ cyalign_ext=Extension('cyalign',['cyalign.pyx'],
                       include_dirs=[numpy.get_include()])
 
 setup(
-    name = 'Gibbs aligner',
-    ext_modules = cythonize(cyalign_ext) + [gibbsmodule]
+    name='efmaral',
+    version='0.1',
+    author='Robert Östling',
+    url='https://github.com/robertostling/efmaral',
+    license='GNU GPLv3',
+    install_requires=['numpy'],
+    ext_modules=cythonize(cyalign_ext) + [gibbsmodule]
 )
 
