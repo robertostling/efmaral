@@ -469,6 +469,11 @@ def align_numeric(
     cdef TokenizedText tt1, tt2
     cdef int samples_min, samples_max
 
+    if reverse:
+        sents1, sents2 = sents2, sents1
+        voc1, voc2 = voc2, voc1
+        indexer1, indexer2 = indexer2, indexer1
+
     tt1 = TokenizedText((sents1, voc1, indexer1), 0, 0)
     tt2 = TokenizedText((sents2, voc2, indexer2), 0, 0)
 
