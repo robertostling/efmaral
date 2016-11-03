@@ -7,8 +7,18 @@ accurate. In addition, it can function as a plug-in replacement for
 [fast_align](https://github.com/clab/fast_align), or be used as a library from
 a Python program.
 
+**Update:** one major issue with `efmaral` is that is uses considerable
+amounts of memory when aligning large corpora. If this is a problem for you,
+consider trying [eflomal](https://github.com/robertostling/eflomal) instead.
+
+## References
+
 A thorough description can be found in
 [Östling and Tiedemann (2016)](https://ufal.mff.cuni.cz/pbml/106/art-ostling-tiedemann.pdf) ([BibTeX](http://www.robos.org/sections/research/robert_bib.html#Ostling2016efmaral)).
+
+Additional SMT results can be found in [Jörg Tiedemann, Fabienne Cap, Jenna
+Kanerva, Filip Ginter, Sara Stymne, Robert Östling, and Marion Weller-Di
+Marco.](http://www.aclweb.org/anthology/W16-2326) ([BibTeX](http://www.robos.org/sections/research/robert_bib.html#Tiedemann2016wmtsharedtask))
 
 ## Installing
 
@@ -34,6 +44,10 @@ Then, clone this repository and run `make`:
 If you want to install the libraries for use by other Python programs, do:
 
     python3 setup.py install
+
+The functions you are probably most interested in are `efmaral.cyalign.align`
+and `efmaral.cyalign.align_numeric` (see docstrings in `cyalign.pyx` for
+usage).
 
 If everything works, you can try directly to evaluate with a small part of
 the English-Hindi data set from WPT-05:
@@ -83,6 +97,8 @@ WPT data, by providing two filename arguments to the `-i` option:
 
 
 ## Performance
+
+**Update:** additional evaluation results are available in [Östling and Tiedemann (2016)](https://ufal.mff.cuni.cz/pbml/106/art-ostling-tiedemann.pdf)
 
 This is a comparison between `efmaral` and `fast_align`.
 Tests were run on a two-CPU

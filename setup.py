@@ -6,7 +6,7 @@ from Cython.Build import cythonize
 import numpy
 
 gibbsmodule = Extension(
-    'gibbs',
+    'efmaral.gibbs',
     sources=['gibbs.c'],
     libraries=[],
     include_dirs=[numpy.get_include()],
@@ -23,7 +23,7 @@ gibbsmodule = Extension(
                         ],
     extra_link_args=['-lgomp'])
 
-cyalign_ext=Extension('cyalign',['cyalign.pyx'],
+cyalign_ext=Extension('efmaral.cyalign',['cyalign.pyx'],
                       include_dirs=[numpy.get_include()])
 
 setup(
