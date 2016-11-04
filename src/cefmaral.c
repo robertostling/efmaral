@@ -945,7 +945,7 @@ static PyObject *py_gibbs_ibm_initialize_parallel(
 
 
 
-static PyMethodDef gibbsMethods[] = {
+static PyMethodDef cefmaralMethods[] = {
     {"ibm_sample_parallel", py_gibbs_ibm_sample_parallel, METH_VARARGS,
      "Sample from the model using multiple samplers in parallel\n\n"
      "n_iterations -- integer number of iterations per sampler\n"
@@ -1000,17 +1000,17 @@ static PyMethodDef gibbsMethods[] = {
     {NULL, NULL, 0, NULL}
 };
 
-static struct PyModuleDef gibbsModule = {
+static struct PyModuleDef cefmaralModule = {
     PyModuleDef_HEAD_INIT,
-    "gibbs",
+    "cefmaral",
     NULL,
     -1,
-    gibbsMethods
+    cefmaralMethods
 };
 
 PyMODINIT_FUNC
-PyInit_gibbs(void) {
+PyInit_cefmaral(void) {
     import_array();
-    return PyModule_Create(&gibbsModule);
+    return PyModule_Create(&cefmaralModule);
 }
 

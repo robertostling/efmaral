@@ -8,7 +8,7 @@ import time
 import random
 import math
 
-from gibbs import *
+from cefmaral import *
 
 cimport numpy as np
 cimport cython
@@ -342,6 +342,10 @@ def align(list filenames,
         tt2 = TokenizedText(filename2, prefix_len, suffix_len)
     if reverse:
         tt1, tt2 = tt2, tt1
+
+    print('Vocabulary size: %d (source), %d (target)' % (
+            len(tt1.voc), len(tt2.voc)),
+          file=sys.stderr)
 
     index_size = sum(sent1.shape[0] * sent2.shape[0]
                      for sent1, sent2 in zip(tt1.sents, tt2.sents))

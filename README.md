@@ -25,24 +25,20 @@ Marco.](http://www.aclweb.org/anthology/W16-2326) ([BibTeX](http://www.robos.org
 `efmaral` is implemented in Python/C and requires the following software to be
 installed:
 
- * Python 3 (tested with version 3.4)
- * gcc (tested with version 4.9) and GNU Make
+ * Python 3 (tested with version 3.4) and setuptools
+ * gcc (tested with version 4.9)
  * Cython (tested with version 0.21 and 0.20)
  * NumPY (tested with version 1.8.2)
  * `fast_align` (needed if you want to use the `atools` utility for symmetrization)
 
 These can be installed on Debian 8 (jessie) using the following command as root:
 
-    apt-get install python3-dev python3-setuptools cython3 gcc make python3-numpy
+    apt-get install python3-dev python3-setuptools cython3 gcc python3-numpy
 
-Then, clone this repository and run `make`:
+Then, clone this repository and run `setup.py`:
 
     git clone https://github.com/robertostling/efmaral.git
     cd efmaral
-    make
-
-If you want to install the libraries for use by other Python programs, do:
-
     python3 setup.py install
 
 The functions you are probably most interested in are `efmaral.cyalign.align`
@@ -71,7 +67,7 @@ perform symmetrization. You can use it with the example data in the repo:
 The default values of `efmaral` should give acceptable results, but for a full
 list of options, run:
 
-    ./efmaral.py --help
+    ./align.py --help
 
 Given a parallel text in `fast_align` format, `efmaral` can be used in the same
 way as `fast_align`. First, we can convert some of the WPT-05 data above to
@@ -82,18 +78,18 @@ the `fast_align` format:
 
 Then, we can run `efmaral` on this file:
 
-    ./efmaral.py -i test.fa >test-fwd.moses 
+    ./align.py -i test.fa >test-fwd.moses 
 
 If we want symmetrized alignments, also run in the reverse direction, then run
 atools (which comes with `fast_align`) to symmetrize:
 
-    ./efmaral.py -r -i test.fa >test-back.moses
+    ./align.py -r -i test.fa >test-back.moses
     atools -i test-fwd.moses -j test-back.moses -c grow-diag-final-and >test.moses
 
 `efmaral` also supports reading Europarl-style inputs directly, such as the
 WPT data, by providing two filename arguments to the `-i` option:
 
-    ./efmaral.py -i 3rdparty/data/test.eng 3rdparty/data/test.hin >test-fwd.moses
+    ./align.py -i 3rdparty/data/test.eng 3rdparty/data/test.hin >test-fwd.moses
 
 
 ## Performance
