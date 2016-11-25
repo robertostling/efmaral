@@ -305,7 +305,9 @@ def align(list filenames,
           int model,
           int prefix_len,
           int suffix_len,
-          int seed):
+          int seed,
+          bool discretize=True,
+          bool reshape=False):
     """Align the given file(s) and return the result.
 
     filenames -- a list of filenames, if it contains a single item it is
@@ -379,8 +381,15 @@ def align(list filenames,
         scheme = ((1, max(1, n_samples//4)), (2, max(1, n_samples//4)),
                   (3, n_samples))
 
-    return aligner.align(seed, n_samplers, null_prior, lex_alpha, null_alpha,
-                         scheme, True)
+    aaa = aligner.align(seed, n_samplers, null_prior, lex_alpha, null_alpha,
+                        scheme, discretize)
+
+    if reshape and not discretize:
+        def normalize(m):
+            return m / m.sum(axis=1)[:,None]
+        return tuple(normalize(aa.reshape(
+                        aligner.fff[i].shape[0], aligner.eee[i].shape[0]+1))
+                     for i, aa in enumerate(aaa))
 
     
 def align_soft(

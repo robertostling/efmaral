@@ -3,7 +3,7 @@
 from efmaral import align
 from cefmaral import ibm_print
 
-import sys, argparse, random
+import sys, argparse, random, pickle
 
 def main():
     parser = argparse.ArgumentParser(
@@ -42,6 +42,9 @@ def main():
         '-l', '--length', dest='length', default=1.0, metavar='X',
         type=float, help='Relative number of sampling iterations')
     parser.add_argument(
+        '--output-prob', dest='output_prob', default=None, metavar='FILE',
+        type=str, help='File to write probability tables to')
+    parser.add_argument(
         '-i', '--input', dest='inputs', type=str, nargs='+',
         metavar='filename',
         help='Input (either one fast_align-format file, or two Europarl-style)')
@@ -57,14 +60,19 @@ def main():
     if len(args.inputs) not in (1, 2):
         raise ValueError('Only one or two input files allowed!')
 
+    discretize = args.output_prob is None
+
     aaa = align(args.inputs, args.n_samplers, args.length,
                 args.null_prior, args.lex_alpha, args.null_alpha,
                 args.reverse, args.model, args.prefix_len, args.suffix_len,
-                seed)
+                seed, discretize, True)
 
     print('Writing alignments...', file=sys.stderr)
-    ibm_print(aaa, args.reverse, sys.stdout.fileno())
-
+    if discretize:
+        ibm_print(aaa, args.reverse, sys.stdout.fileno())
+    else:
+        with open(args.output_prob, 'wb') as f:
+            pickle.dump(aaa, f, -1)
 
 if __name__ == '__main__': main()
 
