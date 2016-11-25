@@ -391,7 +391,9 @@ def align(list filenames,
                         aligner.fff[i].shape[0], aligner.eee[i].shape[0]+1))
                      for i, aa in enumerate(aaa))
 
-    
+    return aaa
+
+
 def align_soft(
         list sents1,
         list sents2,
