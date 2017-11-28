@@ -57,7 +57,7 @@ cdef class TokenizedText:
     cdef int prefix_len
     cdef int suffix_len
 
-    def __init__(self, arg, prefix_len, suffix_len):
+    def __init__(self, arg, prefix_len, suffix_len, lower):
         """Create a new TokenizedText instance.
 
         If the argument is a str object, this is interpreted as a filename
@@ -66,17 +66,20 @@ cdef class TokenizedText:
         """
         self.prefix_len = prefix_len
         self.suffix_len = suffix_len
-        if type(arg) is str: self.read_file(arg)
+        if type(arg) is str: self.read_file(arg, lower)
         elif type(arg) is list: self.read_sents(arg)
         elif type(arg) is tuple:
             self.sents, self.voc, self.indexer = arg
 
-    cdef read_file(self, str filename):
+    cdef read_file(self, str filename, bool lower):
         cdef list sents
         cdef str line
         cdef str s
         with open(filename, 'r', encoding='utf-8') as f:
-            sents = [line.lower().split() for line in f]
+            if lower:
+                sents = [line.lower().split() for line in f]
+            else:
+                sents = [line.split() for line in f]
         self.read_sents(sents)
 
     cdef read_sents(self, list sents):
@@ -106,7 +109,7 @@ cdef class TokenizedText:
             [s for s,_ in sorted(indexer.items(), key=itemgetter(1))])
 
 
-cpdef read_fastalign(filename, prefix_len, suffix_len):
+cpdef read_fastalign(filename, prefix_len, suffix_len, lower):
     """Read a file in fast_align format.
 
     Returns the two sides of the text as a tuple of two TokenizedText
@@ -117,11 +120,14 @@ cpdef read_fastalign(filename, prefix_len, suffix_len):
     cdef tuple pair
     cdef str line
     with open(filename, 'r', encoding='utf-8') as f:
-        pair = tuple(zip(*[line.lower().split('|||') for line in f]))
+        if lower:
+            pair = tuple(zip(*[line.lower().split('|||') for line in f]))
+        else:
+            pair = tuple(zip(*[line.split('|||') for line in f]))
     text1 = TokenizedText([line.split() for line in pair[0]],
-                          prefix_len, suffix_len)
+                          prefix_len, suffix_len, lower)
     text2 = TokenizedText([line.split() for line in pair[1]],
-                          prefix_len, suffix_len)
+                          prefix_len, suffix_len, lower)
     return text1, text2
 
 
@@ -307,7 +313,8 @@ def align(list filenames,
           int suffix_len,
           int seed,
           bool discretize=True,
-          bool reshape=False):
+          bool reshape=False,
+          bool lower=True):
     """Align the given file(s) and return the result.
 
     filenames -- a list of filenames, if it contains a single item it is
@@ -327,6 +334,7 @@ def align(list filenames,
     prefix_len -- 0 for no stemming, otherwise length of prefix to keep
     suffix_len -- 0 for no stemming, otherwise length of suffix to keep
     seed -- PRNG seed
+    lower -- lower-case input when reading from file
     """
 
     cdef TokenizedText tt1, tt2
@@ -335,13 +343,13 @@ def align(list filenames,
 
     if len(filenames) == 1:
         print('Reading %s...' % filenames[0], file=sys.stderr)
-        tt1, tt2 = read_fastalign(filenames[0], prefix_len, suffix_len)
+        tt1, tt2 = read_fastalign(filenames[0], prefix_len, suffix_len, lower)
     else:
         filename1, filename2 = filenames
         print('Reading %s...' % filename1, file=sys.stderr)
-        tt1 = TokenizedText(filename1, prefix_len, suffix_len)
+        tt1 = TokenizedText(filename1, prefix_len, suffix_len, lower)
         print('Reading %s...' % filename2, file=sys.stderr)
-        tt2 = TokenizedText(filename2, prefix_len, suffix_len)
+        tt2 = TokenizedText(filename2, prefix_len, suffix_len, lower)
     if reverse:
         tt1, tt2 = tt2, tt1
 
@@ -420,8 +428,8 @@ def align_soft(
     cdef tuple voc1, voc2
     cdef int samples_min, samples_max
 
-    tt1 = TokenizedText(sents1, prefix_len1, suffix_len1)
-    tt2 = TokenizedText(sents2, prefix_len2, suffix_len2)
+    tt1 = TokenizedText(sents1, prefix_len1, suffix_len1, False)
+    tt2 = TokenizedText(sents2, prefix_len2, suffix_len2, False)
 
     index_size = sum(sent1.shape[0] * sent2.shape[0]
                      for sent1, sent2 in zip(tt1.sents, tt2.sents))
@@ -489,8 +497,8 @@ def align_numeric(
         voc1, voc2 = voc2, voc1
         indexer1, indexer2 = indexer2, indexer1
 
-    tt1 = TokenizedText((sents1, voc1, indexer1), 0, 0)
-    tt2 = TokenizedText((sents2, voc2, indexer2), 0, 0)
+    tt1 = TokenizedText((sents1, voc1, indexer1), 0, 0, False)
+    tt2 = TokenizedText((sents2, voc2, indexer2), 0, 0, False)
 
     index_size = sum(sent1.shape[0] * sent2.shape[0]
                      for sent1, sent2 in zip(tt1.sents, tt2.sents))

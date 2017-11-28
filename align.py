@@ -12,6 +12,9 @@ def main():
         '-v', '--verbose', dest='verbose',
         action='store_true', help='Enable verbose output')
     parser.add_argument(
+        '--no-lower-case',
+        action='store_true', help='Do not lower-case data')
+    parser.add_argument(
         '-r', '--reverse', dest='reverse',
         action='store_true', help='Align in the reverse direction')
     parser.add_argument(
@@ -65,7 +68,7 @@ def main():
     aaa = align(args.inputs, args.n_samplers, args.length,
                 args.null_prior, args.lex_alpha, args.null_alpha,
                 args.reverse, args.model, args.prefix_len, args.suffix_len,
-                seed, discretize, True)
+                seed, discretize, True, lower=not args.no_lower_case)
 
     print('Writing alignments...', file=sys.stderr)
     if discretize:
