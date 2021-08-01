@@ -65,6 +65,7 @@ static int intmap_expand(intmap *im) {
             intmap_set(im, old_buf[i], old_buf[i+1]);
         }
     }
+    free((void *)old_buf);
     return 0;
 }
 
